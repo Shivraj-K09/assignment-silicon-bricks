@@ -2,6 +2,7 @@
 // at build-prep time. The tool never calls Overpass while running (it was
 // returning 502s during research). Tries several servers with retries.
 // Output: scripts/raw/osm-thonglo.json (raw Overpass JSON, gitignored)
+// Rail stations come from a wider box, for the "within 500 m of a station" rules.
 //
 //
 // Downloads building and roads from openstreet map
@@ -9,11 +10,13 @@ import { mkdirSync, writeFileSync } from "node:fs";
 
 // south, west, north, east
 const BBOX = [13.73, 100.576, 13.745, 100.59].join(",");
+const STATION_BBOX = [13.7, 100.55, 13.77, 100.62].join(",");
 const QUERY = `[out:json][timeout:120];
 (
   way["building"](${BBOX});
   relation["building"](${BBOX});
   way["highway"](${BBOX});
+  node["railway"="station"](${STATION_BBOX});
 );
 out body geom;`;
 

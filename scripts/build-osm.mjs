@@ -1,6 +1,7 @@
 // Converts the raw Overpass extract into two small static GeoJSON files.
 // Input:  scripts/raw/osm-thonglo.json (from fetch-osm.mjs)
-// Output: public/data/thonglo-buildings.geojson, public/data/thonglo-roads.geojson
+// Output: public/data/thonglo-buildings.geojson, public/data/thonglo-roads.geojson,
+//         public/data/rail-stations.geojson
 //
 // Cleaned that data and guessed missing building heights
 //
@@ -47,6 +48,7 @@ function height(tags, footprint) {
 
 const buildings = [];
 const roads = [];
+const stations = [];
 
 for (const el of raw.elements) {
   const tags = el.tags ?? {};
@@ -72,6 +74,13 @@ for (const el of raw.elements) {
         geometry: { type: "Polygon", coordinates: [r] },
       });
     }
+  } else if (el.type === "node" && tags.railway === "station") {
+    stations.push({
+      type: "Feature",
+      id: el.id,
+      properties: { name: tags["name:en"] ?? tags.name ?? null, network: tags.network ?? null },
+      geometry: { type: "Point", coordinates: [round(el.lon), round(el.lat)] },
+    });
   } else if (el.type === "way" && tags.highway && el.geometry) {
     roads.push({
       type: "Feature",
@@ -91,9 +100,11 @@ for (const el of raw.elements) {
 const fc = (features) => ({ type: "FeatureCollection", features });
 writeFileSync("public/data/thonglo-buildings.geojson", JSON.stringify(fc(buildings)));
 writeFileSync("public/data/thonglo-roads.geojson", JSON.stringify(fc(roads)));
+writeFileSync("public/data/rail-stations.geojson", JSON.stringify(fc(stations)));
 
 const bySource = {};
 for (const b of buildings)
   bySource[b.properties.heightSource] = (bySource[b.properties.heightSource] ?? 0) + 1;
 console.log(`buildings: ${buildings.length}`, bySource);
 console.log(`roads: ${roads.length}`);
+console.log(`stations: ${stations.length}`, stations.map((s) => s.properties.name).join(", "));

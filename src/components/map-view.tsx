@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import "maplibre-gl/dist/maplibre-gl.css";
 import * as maplibregl from "maplibre-gl";
 import * as THREE from "three";
 import { TerraDraw, TerraDrawPolygonMode, TerraDrawSelectMode } from "terra-draw";
@@ -12,6 +13,8 @@ import type { Envelope } from "@/lib/envelope";
 import { designMassing } from "@/lib/massing";
 import { signedArea, type Edge, type Frame } from "@/lib/local-frame";
 import { DATA_AREA_POLYGON, type RoadCrossing, type SiteData } from "@/lib/site";
+import MapLoading from "@/components/map-loading";
+import { COLOURS } from "@/lib/colours";
 import { createThreeLayer } from "@/lib/three-layer";
 
 // Worker file is copied into public/ by scripts/setup-map-worker.mjs
@@ -28,17 +31,6 @@ const ZONE_COLOURS: Record<string, string> = {
   agriculture: "#6aa84f",
   conservation: "#c8a2c8",
 };
-
-export const COLOURS = {
-  plot: "#2563eb",
-  frontage: "#f97316",
-  envelope: "#0d9488",
-  colliding: "#dc2626",
-  realHeight: "#6b7280",
-  estimatedHeight: "#d6d3cc",
-  demolished: "#57534e",
-  dataArea: "#7c3aed",
-} as const;
 
 const PLOT_ID = "plot";
 
@@ -610,6 +602,7 @@ export default function MapView(props: MapViewProps) {
   return (
     <div className="absolute inset-0">
       <div ref={container} className="h-full w-full" />
+      {!ready && <MapLoading text="Loading the map…" />}
     </div>
   );
 }
@@ -628,7 +621,7 @@ const ENVELOPE_LINE_MATERIAL = new THREE.LineBasicMaterial({
 const DESIGN_LINE_MATERIAL = new THREE.LineBasicMaterial({
   color: "#1e293b",
   transparent: true,
-  opacity: 0.45,
+  opacity: 0.18,
 });
 const useMaterials = new Map<Use, THREE.MeshLambertMaterial>();
 /** One shared material per use, coloured like the floor table. */

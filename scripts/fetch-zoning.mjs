@@ -19,6 +19,11 @@ for (const [src, dest] of FILES) {
   if (!res.ok) throw new Error(`${src}: HTTP ${res.status}`);
   const geojson = await res.json();
   if (geojson.type !== "FeatureCollection") throw new Error(`${src}: not a FeatureCollection`);
+  // Round coordinates to 6 decimals (~10 cm): the source has 15+ digits, which
+  // triples the download for no visible difference.
+  const round = (c) =>
+    typeof c[0] === "number" ? c.map((v) => Math.round(v * 1e6) / 1e6) : c.map(round);
+  for (const feat of geojson.features) feat.geometry.coordinates = round(feat.geometry.coordinates);
   writeFileSync(`public/data/${dest}`, JSON.stringify(geojson));
   console.log(`${dest}: ${geojson.features.length} features`);
 }

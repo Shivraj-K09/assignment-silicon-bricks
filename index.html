@@ -9,10 +9,30 @@
       href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap"
       rel="stylesheet"
     />
+    <meta
+      name="description"
+      content="Draw a plot in Bangkok and see what the zoning and building laws allow: the 3D envelope among the real buildings and two concept designs with pass/fail checklists."
+    />
     <title>Bangkok Plot Tool</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app starts (replaced by React). -->
+      <div
+        style="
+          height: 100dvh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font:
+            14px system-ui,
+            sans-serif;
+          color: #737373;
+        "
+      >
+        Loading Bangkok Plot Tool…
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

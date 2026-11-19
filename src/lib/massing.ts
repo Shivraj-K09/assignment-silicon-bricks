@@ -1,5 +1,5 @@
 import type { MultiPolygon } from "polygon-clipping";
-import { ShapeUtils, Vector2 } from "three";
+import { triangulate } from "./triangulate.ts";
 import type { Design, Use } from "./designs.ts";
 
 /** Geometry for one design part: a solid extrusion plus a line at every floor. */
@@ -21,9 +21,9 @@ function extrude(
   const indices: number[] = [];
   const lines: number[] = [];
   for (const poly of footprint) {
-    const contour = poly[0].slice(0, -1).map(([x, y]) => new Vector2(x, y));
-    const holes = poly.slice(1).map((h) => h.slice(0, -1).map(([x, y]) => new Vector2(x, y)));
-    const tris = ShapeUtils.triangulateShape(contour, holes);
+    const contour = poly[0].slice(0, -1).map(([x, y]) => ({ x, y }));
+    const holes = poly.slice(1).map((h) => h.slice(0, -1).map(([x, y]) => ({ x, y })));
+    const tris = triangulate(contour, holes);
     const all = [...contour, ...holes.flat()];
     // Top and bottom caps.
     for (const z of [z1, z0]) {

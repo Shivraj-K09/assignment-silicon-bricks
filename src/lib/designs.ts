@@ -50,6 +50,8 @@ export const SLAB_DEPTH_M = 18;
 export const MIN_COURTYARD_M2 = 150;
 /** Share of a mid-rise ground floor used for covered parking; the rest is lobby. */
 export const GROUND_PARKING_SHARE = 0.85;
+/** Narrowest buildable block, m: below this no flat or corridor fits. Assumption. */
+export const MIN_BLOCK_WIDTH_M = 6;
 
 // ---- Types -----------------------------------------------------------------------
 
@@ -816,6 +818,14 @@ export function designB(input: DesignInput): Design {
       "B",
       NAME,
       "The setbacks and road height limit leave no room for a mid-rise block.",
+    );
+  // At least MIN_BLOCK_WIDTH_M wide somewhere: the footprint must survive shrinking
+  // by half that width from every side. A long sliver of a few m² is not a building.
+  if (!areaOf(fpAt((e1 ?? 0) + MIN_BLOCK_WIDTH_M / 2)))
+    return infeasible(
+      "B",
+      NAME,
+      `After setbacks the plot is narrower than ${MIN_BLOCK_WIDTH_M} m everywhere: too narrow for a building.`,
     );
 
   // Floors: ground (lobby + covered parking) + upper floors, within the floor-area limit.

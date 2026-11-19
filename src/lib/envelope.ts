@@ -1,6 +1,6 @@
 import * as pcModule from "polygon-clipping";
 import type { MultiPolygon, Polygon as PcPolygon, Ring } from "polygon-clipping";
-import { ShapeUtils, Vector2 } from "three";
+import { triangulate } from "./triangulate.ts";
 import { signedArea, type XY } from "./local-frame.ts";
 
 // polygon-clipping's CommonJS build (used by Node) only has a default export;
@@ -189,8 +189,8 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
 
   for (const poly of parts) {
     if (polygonArea(poly) < 0.01) continue;
-    const contour = poly[0].slice(0, -1).map(([x, y]) => new Vector2(x, y));
-    const holes = poly.slice(1).map((h) => h.slice(0, -1).map(([x, y]) => new Vector2(x, y)));
+    const contour = poly[0].slice(0, -1).map(([x, y]) => ({ x, y }));
+    const holes = poly.slice(1).map((h) => h.slice(0, -1).map(([x, y]) => ({ x, y })));
     const base = mesh.positions.length / 3;
     const all = [...contour, ...holes.flat()];
     for (const v of all) {
@@ -199,7 +199,7 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
       frontH = Math.min(frontH, h);
       mesh.positions.push(v.x, v.y, h);
     }
-    for (const tri of ShapeUtils.triangulateShape(contour, holes)) {
+    for (const tri of triangulate(contour, holes)) {
       mesh.indices.push(base + tri[0], base + tri[1], base + tri[2]);
     }
 

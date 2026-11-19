@@ -1,5 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { COLOURS } from "@/components/map-view";
+import { COLOURS } from "@/lib/colours";
 
 type Item = { colour: string; label: string; kind: "fill" | "outline" | "line" | "dashed" };
 

@@ -1,10 +1,13 @@
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import type { Feature, Polygon } from "geojson";
+import { Building2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import InputsPanel from "@/components/inputs-panel";
 import MapLegend from "@/components/map-legend";
-import MapView, { type PlotChangeKind } from "@/components/map-view";
+import type { PlotChangeKind } from "@/components/map-view";
+import MapLoading from "@/components/map-loading";
 import PlotCheckBadge, { RoadCrossingBadge } from "@/components/plot-check-badge";
 import DesignPanel from "@/components/design-panel";
 import EnvelopePanel from "@/components/envelope-panel";
@@ -43,6 +46,12 @@ function matchFrontage(old: Edge, edges: Edge[]): number | null {
   const candidates = edges.filter(along).sort((a, b) => b.lengthM - a.lengthM);
   return candidates[0]?.index ?? null;
 }
+
+// The map (MapLibre, Three.js, terra-draw: ~1.7 MB) loads on its own, so the page
+// and panels appear at once and the map code downloads alongside the site data.
+// Start downloading it right away, in parallel with the site data.
+const mapViewModule = import("@/components/map-view");
+const MapView = lazy(() => mapViewModule);
 
 export default function App() {
   const { data, error } = useSiteData();
@@ -101,8 +110,19 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className="bg-background text-foreground flex h-dvh flex-col">
-        <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
-          <h1 className="text-sm font-semibold">Bangkok Plot Tool</h1>
+        <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-2">
+          <div className="flex items-center gap-2.5">
+            <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
+              <Building2 className="size-4" aria-hidden />
+            </span>
+            <div className="leading-tight">
+              <h1 className="text-sm font-semibold">Bangkok Plot Tool</h1>
+              <p className="text-muted-foreground hidden text-xs sm:block">
+                What you can build on a plot, under Bangkok's zoning and building laws
+              </p>
+            </div>
+          </div>
+          <span className="hidden flex-1 sm:block" />
           <Badge variant="secondary">
             Thong Lo · {site?.zone.zone ?? "…"}
             {rules && rules.far ? ` · FAR ${rules.far}` : ""}
@@ -114,26 +134,33 @@ export default function App() {
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           <main className="relative h-[55dvh] shrink-0 md:order-2 md:h-auto md:flex-1">
             {data ? (
-              <MapView
-                data={data}
-                frame={FRAME}
-                plot={inputs.plot}
-                edges={geometry.edges}
-                frontageEdge={inputs.frontageEdge}
-                overlaps={site?.overlaps ?? []}
-                roadCrossings={site?.roadCrossings ?? []}
-                envelope={envelope}
-                drawing={drawing}
-                onPlotChange={onPlotChange}
-                onDrawingEnd={() => setDrawing(false)}
-                onEdgeClick={onFrontageEdge}
-                layers={layers}
-                design={layers.design ? design : null}
-              />
+              <Suspense fallback={<MapLoading text="Loading the map…" />}>
+                <MapView
+                  data={data}
+                  frame={FRAME}
+                  plot={inputs.plot}
+                  edges={geometry.edges}
+                  frontageEdge={inputs.frontageEdge}
+                  overlaps={site?.overlaps ?? []}
+                  roadCrossings={site?.roadCrossings ?? []}
+                  envelope={envelope}
+                  drawing={drawing}
+                  onPlotChange={onPlotChange}
+                  onDrawingEnd={() => setDrawing(false)}
+                  onEdgeClick={onFrontageEdge}
+                  layers={layers}
+                  design={layers.design ? design : null}
+                />
+              </Suspense>
             ) : (
-              <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-                {error ? `Could not load the site data: ${error}` : "Loading Thong Lo site data…"}
-              </div>
+              <MapLoading
+                text={
+                  error
+                    ? `Could not load the site data: ${error}`
+                    : "Loading zoning and building data…"
+                }
+                failed={!!error}
+              />
             )}
             <MapControls layers={layers} onLayers={setLayers} />
             <MapLegend />
@@ -164,6 +191,11 @@ export default function App() {
               onRoadWidth={(m) => setInputs((prev) => ({ ...prev, roadWidthM: m }))}
               onBuildingType={(t) => setInputs((prev) => ({ ...prev, buildingType: t }))}
             />
+            {!rules && !error && (
+              <Card size="sm" className="text-muted-foreground px-4 text-sm">
+                Loading the 2013 zoning map, buildings and roads around Thong Lo…
+              </Card>
+            )}
             {rules && (
               <>
                 {shown && (

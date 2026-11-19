@@ -19,6 +19,7 @@
     "@turf/turf": "^7.4.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",
+    "earcut": "^3.2.4",
     "lucide-react": "^1.76.0",
     "maplibre-gl": "^6.19.0",
     "polygon-clipping": "^0.15.7",

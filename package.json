@@ -8,9 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "postinstall": "node scripts/copy-worker.mjs",
-    "predev": "node scripts/copy-worker.mjs",
-    "prebuild": "node scripts/copy-worker.mjs",
+    "postinstall": "node scripts/setup-map-worker.mjs",
+    "predev": "node scripts/setup-map-worker.mjs",
+    "prebuild": "node scripts/setup-map-worker.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

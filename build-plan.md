@@ -23,7 +23,7 @@ Rules and numbers come from `research-notes.md` (sections 2, 3, 3b, 4, 5a, 5e, 5
 ## Project quirks (folder name contains `#`)
 
 - Vite's dev server can't serve from a path with `#`, so `npm run dev` runs `scripts/dev.mjs`: build in watch mode + `vite preview` on port 5173. Vercel runs the normal `npm run build`.
-- MapLibre's worker is copied to `public/` by `scripts/copy-worker.mjs` (postinstall / predev / prebuild) and set with `setWorkerUrl`, because Vite's `?url` import fails on this path.
+- MapLibre's worker is copied to `public/` by `scripts/setup-map-worker.mjs` (postinstall / predev / prebuild) and set with `setWorkerUrl`, because Vite's `?url` import fails on this path.
 - Font files can't go through Vite's asset loader here, so Geist comes from Google Fonts.
 - The shadcn CLI writes `import { cn } from "cn"` on this path; fix to `@/lib/utils` after every `shadcn add`.
 - The old MCP viewer page moved to `public/mcp-viewer.html`.

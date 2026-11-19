@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as maplibregl from "maplibre-gl";
 
-// Worker file is copied into public/ by scripts/copy-worker.mjs
+// Worker file is copied into public/ by scripts/setup-map-worker.mjs
 // (Vite's ?url import fails because the project path contains "#").
 maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
 

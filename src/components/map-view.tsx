@@ -6,7 +6,10 @@ import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { MapLayers } from "@/components/map-controls";
 import type { BuildingOverlap } from "@/lib/building-overlap";
+import { USE_COLOURS } from "@/components/design-panel";
+import type { Design, Use } from "@/lib/designs";
 import type { Envelope } from "@/lib/envelope";
+import { designMassing } from "@/lib/massing";
 import { signedArea, type Edge, type Frame } from "@/lib/local-frame";
 import { DATA_AREA_POLYGON, type RoadCrossing, type SiteData } from "@/lib/site";
 import { createThreeLayer } from "@/lib/three-layer";
@@ -56,6 +59,8 @@ interface MapViewProps {
   /** A plot edge was clicked or tapped: make it the road side. */
   onEdgeClick: (edge: number) => void;
   layers: MapLayers;
+  /** The concept design to draw as massing, or null. */
+  design: Design | null;
 }
 
 const fc = <G extends GeoJSON.Geometry>(features: Feature<G>[]): FeatureCollection<G> => ({
@@ -70,6 +75,7 @@ export default function MapView(props: MapViewProps) {
   const drawRef = useRef<TerraDraw | null>(null);
   const threeRef = useRef<ReturnType<typeof createThreeLayer> | null>(null);
   const envGroupRef = useRef<THREE.Group | null>(null);
+  const designGroupRef = useRef<THREE.Group | null>(null);
   /** Geometry terra-draw currently holds, to tell our own edits from outside changes. */
   const syncedRef = useRef<string>("");
   const syncPlot = useRef<(plot: Feature<Polygon>) => void>(() => {});
@@ -525,6 +531,39 @@ export default function MapView(props: MapViewProps) {
     threeRef.current?.repaint();
   }, [ready, props.layers.neighbours, props.layers.envelope]);
 
+  // ---- Concept design massing --------------------------------------------------------
+  useEffect(() => {
+    const three = threeRef.current;
+    if (!ready || !three) return;
+    if (designGroupRef.current) {
+      three.root.remove(designGroupRef.current);
+      designGroupRef.current.traverse((o) => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) o.geometry.dispose();
+      });
+      designGroupRef.current = null;
+    }
+    const design = props.design;
+    if (design?.feasible) {
+      const group = new THREE.Group();
+      for (const part of designMassing(design)) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(part.positions, 3));
+        g.setIndex(part.indices);
+        g.computeVertexNormals();
+        group.add(new THREE.Mesh(g, useMaterial(part.use)));
+        const lg = new THREE.BufferGeometry();
+        lg.setAttribute("position", new THREE.Float32BufferAttribute(part.lines, 3));
+        group.add(new THREE.LineSegments(lg, DESIGN_LINE_MATERIAL));
+      }
+      three.root.add(group);
+      designGroupRef.current = group;
+    }
+    // With a design shown, the envelope becomes a faint ghost around it.
+    ENVELOPE_MATERIAL.opacity = design?.feasible ? 0.1 : 0.28;
+    ENVELOPE_LINE_MATERIAL.opacity = design?.feasible ? 0.35 : 1;
+    three.repaint();
+  }, [ready, props.design]);
+
   // ---- Envelope ---------------------------------------------------------------------
   useEffect(() => {
     const map = mapRef.current;
@@ -582,7 +621,25 @@ const ENVELOPE_MATERIAL = new THREE.MeshLambertMaterial({
   side: THREE.DoubleSide,
   depthWrite: false,
 });
-const ENVELOPE_LINE_MATERIAL = new THREE.LineBasicMaterial({ color: "#0f766e" });
+const ENVELOPE_LINE_MATERIAL = new THREE.LineBasicMaterial({
+  color: "#0f766e",
+  transparent: true,
+});
+const DESIGN_LINE_MATERIAL = new THREE.LineBasicMaterial({
+  color: "#1e293b",
+  transparent: true,
+  opacity: 0.45,
+});
+const useMaterials = new Map<Use, THREE.MeshLambertMaterial>();
+/** One shared material per use, coloured like the floor table. */
+function useMaterial(use: Use): THREE.MeshLambertMaterial {
+  let m = useMaterials.get(use);
+  if (!m) {
+    m = new THREE.MeshLambertMaterial({ color: USE_COLOURS[use], side: THREE.DoubleSide });
+    useMaterials.set(use, m);
+  }
+  return m;
+}
 
 /** How close (screen pixels) a click must be to a plot edge to pick it. */
 const EDGE_CLICK_PX = 14;

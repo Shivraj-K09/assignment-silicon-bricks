@@ -6,6 +6,7 @@ import InputsPanel from "@/components/inputs-panel";
 import MapLegend from "@/components/map-legend";
 import MapView, { type PlotChangeKind } from "@/components/map-view";
 import PlotCheckBadge, { RoadCrossingBadge } from "@/components/plot-check-badge";
+import DesignPanel from "@/components/design-panel";
 import EnvelopePanel from "@/components/envelope-panel";
 import MapControls, { DEFAULT_LAYERS, type MapLayers } from "@/components/map-controls";
 import RulesPanel from "@/components/rules-panel";
@@ -50,7 +51,17 @@ export default function App() {
   const [view, setView] = useState<EnvelopeView>(DEFAULT_VIEW);
   const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
   const analysis = useAnalysis(data, inputs, view);
-  const { geometry, site, rules, envelope, shown } = analysis;
+  const { geometry, site, rules, envelope, shown, designs, designsStale } = analysis;
+  const [selectedDesign, setSelectedDesign] = useState<"A" | "B">("A");
+  const design = designs?.find((d) => d.id === selectedDesign) ?? null;
+  const designPanel = (
+    <DesignPanel
+      designs={designs}
+      selected={selectedDesign}
+      onSelect={setSelectedDesign}
+      stale={designsStale}
+    />
+  );
 
   const onPlotChange = useCallback(
     (plot: Feature<Polygon>, kind: PlotChangeKind) => {
@@ -117,6 +128,7 @@ export default function App() {
                 onDrawingEnd={() => setDrawing(false)}
                 onEdgeClick={onFrontageEdge}
                 layers={layers}
+                design={layers.design ? design : null}
               />
             ) : (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -157,9 +169,15 @@ export default function App() {
                 {shown && (
                   <EnvelopePanel rules={rules} shown={shown} view={view} onView={setView} />
                 )}
+                {/* Below 1024 px the designs sit here; on wide screens in their own column. */}
+                <div className="lg:hidden">{designPanel}</div>
                 <RulesPanel rules={rules} />
               </>
             )}
+          </aside>
+
+          <aside className="bg-muted/30 hidden min-h-0 w-[420px] flex-none flex-col gap-3 overflow-y-auto border-l p-3 *:shrink-0 lg:order-3 lg:flex">
+            {designPanel}
           </aside>
         </div>
       </div>

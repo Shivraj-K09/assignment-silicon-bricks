@@ -126,31 +126,31 @@ What each milestone row above covers, item by item, with the section of this pla
 
 ### M3: envelope refined
 
-- ◐ Switch each rule on and off: road setback, side setbacks, road height plane (Envelope algorithm 5, M3 row)
-- ◐ Both envelopes viewable: best allowed / high-rise / mid-rise under 23 m (Envelope algorithm 3, M3 row)
-- ◐ Display cap from full floor area plus a margin, keeping the slope visible (Envelope algorithm 4)
-- ◐ Split plots: all pieces kept (Envelope algorithm 2)
-- ◐ Edge cases: tiny or narrow plot message, very narrow and very wide roads (M3 row)
-- ◐ 2D / 3D view, envelope and buildings toggles (UI)
-- ◐ Tests for the rules, envelope and cap (M3 row): 63 passing
+- ✓ Switch each rule on and off: road setback, side setbacks, road height plane (Envelope algorithm 5, M3 row)
+- ✓ Both envelopes viewable: best allowed / high-rise / mid-rise under 23 m (Envelope algorithm 3, M3 row)
+- ✓ Display cap from full floor area plus a margin, keeping the slope visible (Envelope algorithm 4)
+- ✓ Split plots: all pieces kept (Envelope algorithm 2)
+- ✓ Edge cases: tiny or narrow plot message, very narrow and very wide roads (M3 row)
+- ✓ 2D / 3D view, envelope and buildings toggles (UI)
+- ✓ Tests for the rules, envelope and cap (M3 row): 63 passing
 
 ### M4: two designs with checklists
 
-- ☐ Design A: tower on a parking podium, high-rise (Design generator)
-- ☐ Design B: mid-rise slab under 23 m (Design generator)
-- ☐ Floor table per design: use, area, height; total floor area = sum of floors (Design generator)
-- ☐ Units or rooms, parking spaces and area, height, footprint, open space per design (Design generator, Rules engine: parking)
-- ☐ Pass / fail / flag checklist per design with clause references (Design generator), including:
-  - ☐ FAR, open space, footprint, setbacks, height plane
-  - ☐ MR 33 clause 3: 6 m fire-truck access around a high-rise (Rules engine)
-  - ☐ L/8 frontage rule (Rules engine)
-  - ☐ Parking count (Rules engine)
-  - ☐ EIA flag (Rules engine)
-- ☐ A design that can't meet a rule shows the failing rows rather than hiding (Design generator)
-- ☐ Designs drawn in 3D among the real buildings (M4 row)
-- ☐ Design cards A and B in a panel, with Tabs (UI)
-- ☐ Map toggles for design A / design B (UI)
-- ☐ Tests for the design maths
+- ◐ Design A: tower on a parking podium, high-rise (Design generator)
+- ◐ Design B: mid-rise under 23 m (Design generator). Built as a block with every storey that fits under 23 m (7 for a condo), shrunk evenly to stay under 10,000 m², with a courtyard when the block is deep enough; parking on the covered ground floor plus open-air parking in up to half the open space.
+- ◐ Floor table per design: use, area, height; total floor area = sum of floors (Design generator)
+- ◐ Units or rooms, parking spaces and area, height, footprint, open space per design (Design generator, Rules engine: parking)
+- ◐ Pass / fail / flag checklist per design with clause references (Design generator), including:
+  - ◐ FAR, open space, footprint, setbacks, height plane
+  - ◐ MR 33 clause 3: 6 m fire-truck access around a high-rise (Rules engine)
+  - ◐ L/8 frontage rule (Rules engine)
+  - ◐ Parking count (Rules engine)
+  - ◐ EIA flag (Rules engine)
+- ◐ A design that can't meet a rule shows the failing rows rather than hiding (Design generator)
+- ◐ Designs drawn in 3D among the real buildings (M4 row)
+- ◐ Design cards A and B in a panel, with Tabs (UI)
+- ◐ Map toggles for design A / design B (UI). One "Design" switch on the map; the A / B tab picks which design is drawn.
+- ◐ Tests for the design maths
 
 ### M5: polish
 

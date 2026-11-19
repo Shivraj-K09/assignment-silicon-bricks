@@ -1,7 +1,8 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { area, centroid, kinks } from "@turf/turf";
 import type { Feature, Polygon } from "geojson";
 import { findBuildingOverlaps } from "@/lib/building-overlap";
+import { generateDesigns, type DesignInput } from "@/lib/designs";
 import { computeEnvelope, highRiseDisplayCap } from "@/lib/envelope";
 import { makeFrame, plotRing, ringEdges } from "@/lib/local-frame";
 import { computeRules, type BuildingType, type EnvelopeKind } from "@/lib/rules";
@@ -145,6 +146,34 @@ export function useAnalysis(
   }, [rules, view, geometry.ring, geometry.areaM2, frontageEdge, roadWidthM]);
   const envelope = shown?.envelope ?? null;
 
-  return { geometry, site, rules, envelope, shown, frontageM };
+  // The two designs. They take ~30–60 ms, so they run on a deferred copy of the
+  // inputs: while a corner is dragged the map and envelope stay smooth and the
+  // designs catch up as soon as the drag pauses.
+  const designInput = useMemo<DesignInput | null>(() => {
+    if (!rules || !site) return null;
+    return {
+      ring: geometry.ring,
+      frontageEdge,
+      roadWidthM,
+      frontageM,
+      buildingType,
+      areaM2: geometry.areaM2,
+      rules,
+      station: site.station,
+      plotIssues: {
+        collidingBuildings: site.overlaps.filter((o) => o.status === "colliding").length,
+        crossingRoads: site.roadCrossings.map((c) => c.name),
+        outsideData: geometry.coverage === "outside",
+      },
+    };
+  }, [rules, site, geometry, frontageEdge, roadWidthM, frontageM, buildingType]);
+  const deferredInput = useDeferredValue(designInput);
+  const designs = useMemo(
+    () => (deferredInput ? generateDesigns(deferredInput) : null),
+    [deferredInput],
+  );
+  const designsStale = deferredInput !== designInput;
+
+  return { geometry, site, rules, envelope, shown, frontageM, designs, designsStale };
 }
 export type Analysis = ReturnType<typeof useAnalysis>;

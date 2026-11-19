@@ -6,10 +6,17 @@ export interface MapLayers {
   /** Tilted 3D view (true) or flat top-down 2D view, handy for drawing. */
   view3d: boolean;
   envelope: boolean;
+  /** The selected concept design, drawn as massing. */
+  design: boolean;
   neighbours: boolean;
 }
 
-export const DEFAULT_LAYERS: MapLayers = { view3d: true, envelope: true, neighbours: true };
+export const DEFAULT_LAYERS: MapLayers = {
+  view3d: true,
+  envelope: true,
+  design: true,
+  neighbours: true,
+};
 
 /** 2D/3D view and what to show on the map, top-left over the map. */
 export default function MapControls({
@@ -48,6 +55,10 @@ export default function MapControls({
       <label className="flex cursor-pointer items-center justify-between gap-3">
         Envelope
         <Switch size="sm" checked={layers.envelope} onCheckedChange={(v) => set({ envelope: v })} />
+      </label>
+      <label className="flex cursor-pointer items-center justify-between gap-3">
+        Design
+        <Switch size="sm" checked={layers.design} onCheckedChange={(v) => set({ design: v })} />
       </label>
       <label className="flex cursor-pointer items-center justify-between gap-3">
         Buildings

@@ -5,7 +5,7 @@ import { signedArea, type XY } from "./local-frame.ts";
 
 // polygon-clipping's CommonJS build (used by Node) only has a default export;
 // its ESM build (used by Vite) has both. This works in both.
-const pc = ((pcModule as unknown as { default?: typeof pcModule }).default ??
+export const pc = ((pcModule as unknown as { default?: typeof pcModule }).default ??
   pcModule) as typeof pcModule;
 
 export interface EnvelopeInput {
@@ -51,26 +51,34 @@ export interface Envelope {
 const EMPTY: EnvelopeMesh = { positions: [], indices: [], lines: [] };
 
 /** Rounds to 0.1 mm, so the clipping library never sees near-identical points. */
-const snap = (v: number) => Math.round(v * 1e4) / 1e4;
+export const snap = (v: number) => Math.round(v * 1e4) / 1e4;
 
 /**
  * Polygon for a segment buffered by r: a "stadium" (two half-circles joined by
  * straight sides). Built as one convex ring, not a rectangle unioned with two
  * discs: their touching edges trip up polygon-clipping's sweep line.
  */
-function segmentBuffer(a: XY, b: XY, r: number): PcPolygon {
+export function segmentBuffer(a: XY, b: XY, r: number): PcPolygon {
   const phi = Math.atan2(b[1] - a[1], b[0] - a[0]);
   const STEPS = 12; // per half-circle
+  const step = Math.PI / STEPS;
+  // The arc is drawn just OUTSIDE the true circle (vertices at mid-angles, radius
+  // r / cos(step/2)), so a setback is never less than r anywhere. The straight
+  // sides stay exactly r. An inscribed polygon would leave setbacks ~0.1 m short.
+  const R = r / Math.cos(step / 2);
   const ring: Ring = [];
+  const arc = (c: XY, start: number) => {
+    ring.push([snap(c[0] + r * Math.cos(start)), snap(c[1] + r * Math.sin(start))]);
+    for (let i = 0; i < STEPS; i++) {
+      const t = start + (i + 0.5) * step;
+      ring.push([snap(c[0] + R * Math.cos(t)), snap(c[1] + R * Math.sin(t))]);
+    }
+    const end = start + Math.PI;
+    ring.push([snap(c[0] + r * Math.cos(end)), snap(c[1] + r * Math.sin(end))]);
+  };
   // Half-circle around b (the far end), then around a.
-  for (let i = 0; i <= STEPS; i++) {
-    const t = phi - Math.PI / 2 + (i / STEPS) * Math.PI;
-    ring.push([snap(b[0] + r * Math.cos(t)), snap(b[1] + r * Math.sin(t))]);
-  }
-  for (let i = 0; i <= STEPS; i++) {
-    const t = phi + Math.PI / 2 + (i / STEPS) * Math.PI;
-    ring.push([snap(a[0] + r * Math.cos(t)), snap(a[1] + r * Math.sin(t))]);
-  }
+  arc(b, phi - Math.PI / 2);
+  arc(a, phi + Math.PI / 2);
   ring.push(ring[0]);
   return [ring];
 }
@@ -85,8 +93,32 @@ function turnDeg(a: [number, number], b: [number, number], c: [number, number]):
 }
 
 const ringArea = (r: Ring) => Math.abs(signedArea(r.slice(0, -1) as XY[]));
-const polygonArea = (p: PcPolygon) =>
+export const polygonArea = (p: PcPolygon) =>
   ringArea(p[0]) - p.slice(1).reduce((s, h) => s + ringArea(h), 0);
+
+/**
+ * The plot minus a strip along each edge: the road setback along the frontage
+ * edge, the side setback along the others. Throws on a self-crossing outline.
+ * Cheap: always built from the plot's own few edges.
+ */
+export function buildableFootprint(
+  ring: XY[],
+  frontageEdge: number,
+  roadSetbackM: number,
+  sideSetbackM: number,
+): MultiPolygon {
+  const n = ring.length;
+  const closed = [...ring, ring[0]].map(([x, y]) => [snap(x), snap(y)] as [number, number]);
+  const plot: PcPolygon = [closed];
+  const strips: PcPolygon[] = [];
+  for (let i = 0; i < n; i++) {
+    const s = i === frontageEdge % n ? roadSetbackM : sideSetbackM;
+    if (s > 0) strips.push(segmentBuffer(ring[i], ring[(i + 1) % n], s));
+  }
+  return (strips.length ? pc.difference(plot, ...strips) : [plot]).filter(
+    (p) => polygonArea(p) >= 1,
+  );
+}
 
 /**
  * The space a building may fill: the plot shrunk by its setbacks, topped by the
@@ -114,14 +146,7 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
 
   let footprint: MultiPolygon;
   try {
-    const closed = [...ring, ring[0]].map(([x, y]) => [snap(x), snap(y)] as [number, number]);
-    const plot: PcPolygon = [closed];
-    const strips: PcPolygon[] = [];
-    for (let i = 0; i < n; i++) {
-      const s = i === frontageEdge % n ? roadSetbackM : sideSetbackM;
-      if (s > 0) strips.push(segmentBuffer(ring[i], ring[(i + 1) % n], s));
-    }
-    footprint = strips.length ? pc.difference(plot, ...strips) : [plot];
+    footprint = buildableFootprint(ring, frontageEdge, roadSetbackM, sideSetbackM);
   } catch (e) {
     return {
       footprint: [],

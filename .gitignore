@@ -1,0 +1,7 @@
+node_modules
+dist
+.vercel
+scripts/raw
+public/maplibre-gl-worker.mjs
+brief.pdf
+.claude/

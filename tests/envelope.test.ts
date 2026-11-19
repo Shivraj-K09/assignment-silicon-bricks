@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { computeEnvelope, type EnvelopeInput } from "../src/lib/envelope.ts";
+import { computeEnvelope, highRiseDisplayCap, type EnvelopeInput } from "../src/lib/envelope.ts";
 import type { XY } from "../src/lib/local-frame.ts";
 
 const near = (a: number, b: number, tol: number) =>
@@ -137,5 +137,45 @@ describe("computeEnvelope: mesh", () => {
     ];
     const e = env({ ring: bowtie });
     assert.ok(e.error || e.footprintM2 >= 0);
+  });
+});
+
+describe("computeEnvelope: rule switches", () => {
+  it("is a flat box at the cap when the road height plane is switched off", () => {
+    const e = env({ capM: 100, heightPlane: false });
+    near(e.frontHeightM, 100, 1e-6);
+    near(e.maxHeightM, 100, 1e-6);
+  });
+
+  it("grows back to the plot when both setbacks are switched off (set to 0)", () => {
+    near(env({ roadSetbackM: 0, sideSetbackM: 0 }).footprintM2, 50 * 50, 0.5);
+  });
+
+  it("shows each setback's effect: road only, then sides only", () => {
+    // Road setback 6 m only: 50 x 44. Sides only (6 m on 3 edges): 38 x 44.
+    near(env({ roadSetbackM: 6, sideSetbackM: 0 }).footprintM2, 50 * 44, 0.5);
+    near(env({ roadSetbackM: 0, sideSetbackM: 6 }).footprintM2, 38 * 44, 0.5);
+  });
+});
+
+describe("highRiseDisplayCap", () => {
+  it("keeps the road plane's slope visible: building-line height + 30 m, to 10 m", () => {
+    // Sample plot on Thong Lo: full FAR on 2,301 m² needs ~42 m; the plane is 62 m at the line.
+    assert.equal(
+      highRiseDisplayCap({ gfaM2: 25_682, usableFootprintM2: 2_301, frontPlaneM: 62 }),
+      100,
+    );
+  });
+
+  it("goes higher when full FAR on a small footprint needs it", () => {
+    // 25,000 m² on 500 m²: 50 floors x 3 m x 1.25 = 187.5 -> 190 m.
+    assert.equal(
+      highRiseDisplayCap({ gfaM2: 25_000, usableFootprintM2: 500, frontPlaneM: 62 }),
+      190,
+    );
+  });
+
+  it("never goes below 30 m", () => {
+    assert.equal(highRiseDisplayCap({ gfaM2: 0, usableFootprintM2: 0, frontPlaneM: 0 }), 30);
   });
 });

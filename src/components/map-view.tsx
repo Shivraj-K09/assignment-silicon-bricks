@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { TerraDraw, TerraDrawPolygonMode, TerraDrawSelectMode } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
+import type { MapLayers } from "@/components/map-controls";
 import type { BuildingOverlap } from "@/lib/building-overlap";
 import type { Envelope } from "@/lib/envelope";
 import { signedArea, type Edge, type Frame } from "@/lib/local-frame";
@@ -54,6 +55,7 @@ interface MapViewProps {
   onDrawingEnd: () => void;
   /** A plot edge was clicked or tapped: make it the road side. */
   onEdgeClick: (edge: number) => void;
+  layers: MapLayers;
 }
 
 const fc = <G extends GeoJSON.Geometry>(features: Feature<G>[]): FeatureCollection<G> => ({
@@ -497,6 +499,32 @@ export default function MapView(props: MapViewProps) {
     );
   }, [ready, props.roadCrossings]);
 
+  // ---- 2D / 3D camera ------------------------------------------------------------------
+  const view3dRef = useRef(true); // the map starts tilted
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || view3dRef.current === props.layers.view3d) return;
+    view3dRef.current = props.layers.view3d;
+    map.easeTo(
+      props.layers.view3d
+        ? { pitch: 55, bearing: -20, duration: 700 }
+        : { pitch: 0, bearing: 0, duration: 700 },
+    );
+  }, [ready, props.layers.view3d]);
+
+  // ---- What to show ------------------------------------------------------------------
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const vis = (on: boolean) => (on ? "visible" : "none");
+    for (const id of ["buildings-real", "buildings-estimated", "buildings-demolished"]) {
+      map.setLayoutProperty(id, "visibility", vis(props.layers.neighbours));
+    }
+    map.setLayoutProperty("buildable-line", "visibility", vis(props.layers.envelope));
+    if (envGroupRef.current) envGroupRef.current.visible = props.layers.envelope;
+    threeRef.current?.repaint();
+  }, [ready, props.layers.neighbours, props.layers.envelope]);
+
   // ---- Envelope ---------------------------------------------------------------------
   useEffect(() => {
     const map = mapRef.current;
@@ -522,6 +550,7 @@ export default function MapView(props: MapViewProps) {
       group.add(new THREE.LineSegments(lg, ENVELOPE_LINE_MATERIAL));
     }
     three.root.add(group);
+    group.visible = latest.current.layers.envelope;
     envGroupRef.current = group;
     three.repaint();
 

@@ -143,3 +143,18 @@ describe("computeRules: zone flags", () => {
     assert.equal(item(r, "planned-road").status, "limit");
   });
 });
+
+describe("computeRules: extreme road widths", () => {
+  it("handles a very narrow 0.5 m lane: no high-rise, building line 2.75 m from the edge", () => {
+    const r = rules({ roadWidthM: 0.5 });
+    assert.equal(r.highRiseAllowed, false);
+    near(r.setbacks["mid-rise"].roadM, 2.75);
+  });
+
+  it("handles a very wide 80 m road: high-rise allowed, 6 m setback, no floor-area cap", () => {
+    const r = rules({ roadWidthM: 80, plotAreaM2: 5000 });
+    assert.equal(r.highRiseAllowed, true);
+    near(r.setbacks["high-rise"].roadM, 6);
+    near(r.gfaCapM2, 35_000);
+  });
+});

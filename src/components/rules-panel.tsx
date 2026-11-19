@@ -1,6 +1,4 @@
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Envelope } from "@/lib/envelope";
 import { SOURCES, type RuleItem, type Rules, type Status } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
@@ -19,75 +17,8 @@ const GROUPS: { id: RuleItem["group"]; title: string }[] = [
   { id: "height", title: "Height" },
 ];
 
-const fmt = (n: number, dp = 0) => n.toLocaleString("en-US", { maximumFractionDigits: dp });
-
 // The rules table: FAR, open space, setbacks, height and so on, each with its legal source.
 //
-export function EnvelopeSummary({
-  rules,
-  envelope,
-  displayCapM,
-}: {
-  rules: Rules;
-  envelope: Envelope | null;
-  displayCapM: number;
-}) {
-  const kind = rules.envelopeKind;
-  const s = rules.setbacks[kind];
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          Allowed envelope
-          <Badge variant={kind === "high-rise" ? "default" : "secondary"}>
-            {kind === "high-rise" ? "High-rise" : "Mid-rise, under 23 m"}
-          </Badge>
-        </CardTitle>
-        <CardDescription>
-          The teal volume on the map: the space a building may fill after setbacks and the road
-          height limit.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {envelope?.error ? (
-          <p className="text-destructive text-xs">{envelope.error}</p>
-        ) : (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <Stat label="Max floor area" value={`${fmt(rules.gfaCapM2)} m²`} />
-            <Stat label="FAR" value={`${rules.far}`} />
-            <Stat label="Buildable footprint" value={`${fmt(envelope?.footprintM2 ?? 0)} m²`} />
-            <Stat
-              label="Setbacks road / sides"
-              value={`${fmt(s.roadM, 1)} / ${fmt(s.sideM, 1)} m`}
-            />
-            <Stat
-              label="Height at building line"
-              value={`${fmt(envelope?.frontHeightM ?? 0, 1)} m`}
-            />
-            <Stat
-              label="Highest point"
-              value={
-                kind === "high-rise" && (envelope?.maxHeightM ?? 0) >= displayCapM
-                  ? `${displayCapM} m+ (drawn to ${displayCapM} m)`
-                  : `${fmt(envelope?.maxHeightM ?? 0, 1)} m`
-              }
-            />
-          </dl>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
 export default function RulesPanel({ rules }: { rules: Rules }) {
   return (
     <Card size="sm">

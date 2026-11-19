@@ -6,8 +6,16 @@ import InputsPanel from "@/components/inputs-panel";
 import MapLegend from "@/components/map-legend";
 import MapView, { type PlotChangeKind } from "@/components/map-view";
 import PlotCheckBadge, { RoadCrossingBadge } from "@/components/plot-check-badge";
-import RulesPanel, { EnvelopeSummary } from "@/components/rules-panel";
-import { FRAME, HIGH_RISE_DISPLAY_CAP_M, useAnalysis, type SiteInputs } from "@/hooks/use-analysis";
+import EnvelopePanel from "@/components/envelope-panel";
+import MapControls, { DEFAULT_LAYERS, type MapLayers } from "@/components/map-controls";
+import RulesPanel from "@/components/rules-panel";
+import {
+  DEFAULT_VIEW,
+  FRAME,
+  useAnalysis,
+  type EnvelopeView,
+  type SiteInputs,
+} from "@/hooks/use-analysis";
 import { useSiteData } from "@/hooks/use-site-data";
 import { plotRing, ringEdges, type Edge } from "@/lib/local-frame";
 import { SAMPLE_FRONTAGE_EDGE, SAMPLE_PLOT } from "@/lib/sample-plot";
@@ -39,8 +47,10 @@ export default function App() {
   const { data, error } = useSiteData();
   const [inputs, setInputs] = useState<SiteInputs>(INITIAL);
   const [drawing, setDrawing] = useState(false);
-  const analysis = useAnalysis(data, inputs);
-  const { geometry, site, rules, envelope } = analysis;
+  const [view, setView] = useState<EnvelopeView>(DEFAULT_VIEW);
+  const [layers, setLayers] = useState<MapLayers>(DEFAULT_LAYERS);
+  const analysis = useAnalysis(data, inputs, view);
+  const { geometry, site, rules, envelope, shown } = analysis;
 
   const onPlotChange = useCallback(
     (plot: Feature<Polygon>, kind: PlotChangeKind) => {
@@ -106,12 +116,14 @@ export default function App() {
                 onPlotChange={onPlotChange}
                 onDrawingEnd={() => setDrawing(false)}
                 onEdgeClick={onFrontageEdge}
+                layers={layers}
               />
             ) : (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 {error ? `Could not load the site data: ${error}` : "Loading Thong Lo site data…"}
               </div>
             )}
+            <MapControls layers={layers} onLayers={setLayers} />
             <MapLegend />
           </main>
 
@@ -134,6 +146,7 @@ export default function App() {
               onReset={() => {
                 setDrawing(false);
                 setInputs(INITIAL);
+                setView(DEFAULT_VIEW);
               }}
               onFrontageEdge={onFrontageEdge}
               onRoadWidth={(m) => setInputs((prev) => ({ ...prev, roadWidthM: m }))}
@@ -141,11 +154,9 @@ export default function App() {
             />
             {rules && (
               <>
-                <EnvelopeSummary
-                  rules={rules}
-                  envelope={envelope}
-                  displayCapM={HIGH_RISE_DISPLAY_CAP_M}
-                />
+                {shown && (
+                  <EnvelopePanel rules={rules} shown={shown} view={view} onView={setView} />
+                )}
                 <RulesPanel rules={rules} />
               </>
             )}

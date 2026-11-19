@@ -64,9 +64,9 @@ Input: plot polygon (m), frontage edge, road width, type, zone. Output: a rules 
 ## Envelope algorithm (`src/lib/envelope.ts`)
 
 1. Project plot to local metres.
-2. For each edge, buffer the segment by its setback (road edge → road setback, others → side setback); buildable = plot − union(buffers). Handles any non-convex shape; take the largest piece if it splits.
+2. For each edge, buffer the segment by its setback (road edge → road setback, others → side setback); buildable = plot − union(buffers). Handles any non-convex shape. If the setbacks split the plot into several pieces, all pieces are kept: each is real buildable land, and dropping the smaller ones would understate what can be built.
 3. Two envelopes: **high-rise** (6 m all round) and **mid-rise** (3 m sides, mid-rise road setback, capped < 23 m).
-4. Top surface = the 2× road plane, evaluated per vertex after triangulating the buildable polygon (earcut via Three.js `ShapeUtils`) — exact because the plane is linear in distance to a straight frontage line. Display cap at the height needed for full FAR + margin so it reads on screen.
+4. Top surface = the 2× road plane, evaluated per vertex after triangulating the buildable polygon (earcut via Three.js `ShapeUtils`) — exact because the plane is linear in distance to a straight frontage line. Display cap (high-rise only; there is no fixed height limit in ย.9): the larger of (a) full FAR stacked on the usable footprint at 3 m per floor, plus 25%, and (b) the plane height at the building line + 30 m, so the slope stays visible; rounded up to 10 m. Mid-rise cap: 23 m.
 5. Render: translucent extruded mesh with the sloped top, plus outlined plot and setback lines on the ground. Toggle "show each rule" layers (road setback, side setback, height plane) so each rule visibly changes the shape.
 
 ## Design generator (`src/lib/designs.ts`)
@@ -96,6 +96,75 @@ Input: plot polygon (m), frontage edge, road width, type, zone. Output: a rules 
 | M5              | Fri late afternoon | Polish: styling, loading states, edge cases (self-intersecting plot, tiny plot, zone crossing), phone check, perf check, README.                                                                                                                                            |
 | **Code freeze** | **Fri evening**    | Coding stops. Evening is for the user to write the doc.                                                                                                                                                                                                                     |
 | Sat AM          | until 11:14 IST    | Final small fixes only, then submit.                                                                                                                                                                                                                                        |
+
+## Milestone checklists
+
+What each milestone row above covers, item by item, with the section of this plan that describes it. ✓ done and pushed, ◐ done but not yet pushed, ☐ not started.
+
+### M1: map, real site, Three.js test
+
+- ✓ Vite + React + TypeScript app deployed on Vercel (Stack)
+- ✓ Map of Thong Lo with the 2013 zoning layer and zone labels (Data prep 1)
+- ✓ OSM buildings and roads, fetched once with mirror fallback (Data prep 2)
+- ✓ 3D buildings: real heights vs estimated heights, shown differently, with a legend (Data prep 3)
+- ✓ Sample irregular plot in ย.9 on Thong Lo, pre-loaded (Inputs). Built as 3,669 m², 9 corners, following the gaps between buildings so it cuts none (`scripts/make-sample-plot.mjs`).
+- ✓ Three.js test box inside MapLibre, checked for position, scale and depth against real buildings (M1 row)
+
+### M2: basic working version
+
+- ✓ Draw a new plot; drag corners; drag the whole plot (Inputs)
+- ✓ Pick the road edge by clicking or tapping it (or its number) on the map, or from a dropdown (Inputs, Phone screens)
+- ✓ Road name auto-filled from the nearest OSM road (Inputs)
+- ✓ Road width input with presets Thong Lo 25 m / soi 8 m (Inputs)
+- ✓ Building type: condo / hotel / office. In the left panel, not the header (UI)
+- ✓ Rules panel: value, plain explanation, clause and link to the source PDF (UI, Rules engine)
+- ✓ Rules: zone, FAR, OSR, setbacks, height plane, footprint, open space, high-rise and extra-large thresholds, MR 33 road access, use-specific road flags, special height area, planned road widening, zone crossing (Rules engine)
+- ✓ Simple 3D envelope: setbacks plus the 2× road height plane (Envelope algorithm 1, 2, 4)
+- ✓ Everything updates live on every change (UI). Recomputed directly with `useMemo`; no `requestAnimationFrame` step was needed.
+- ✓ Phone layout checked at 375 px (Phone screens)
+- ✓ Extras: building collision check, demolished buildings as dashed outlines, data-area boundary and warning, public road through the plot warning
+
+### M3: envelope refined
+
+- ◐ Switch each rule on and off: road setback, side setbacks, road height plane (Envelope algorithm 5, M3 row)
+- ◐ Both envelopes viewable: best allowed / high-rise / mid-rise under 23 m (Envelope algorithm 3, M3 row)
+- ◐ Display cap from full floor area plus a margin, keeping the slope visible (Envelope algorithm 4)
+- ◐ Split plots: all pieces kept (Envelope algorithm 2)
+- ◐ Edge cases: tiny or narrow plot message, very narrow and very wide roads (M3 row)
+- ◐ 2D / 3D view, envelope and buildings toggles (UI)
+- ◐ Tests for the rules, envelope and cap (M3 row): 63 passing
+
+### M4: two designs with checklists
+
+- ☐ Design A: tower on a parking podium, high-rise (Design generator)
+- ☐ Design B: mid-rise slab under 23 m (Design generator)
+- ☐ Floor table per design: use, area, height; total floor area = sum of floors (Design generator)
+- ☐ Units or rooms, parking spaces and area, height, footprint, open space per design (Design generator, Rules engine: parking)
+- ☐ Pass / fail / flag checklist per design with clause references (Design generator), including:
+  - ☐ FAR, open space, footprint, setbacks, height plane
+  - ☐ MR 33 clause 3: 6 m fire-truck access around a high-rise (Rules engine)
+  - ☐ L/8 frontage rule (Rules engine)
+  - ☐ Parking count (Rules engine)
+  - ☐ EIA flag (Rules engine)
+- ☐ A design that can't meet a rule shows the failing rows rather than hiding (Design generator)
+- ☐ Designs drawn in 3D among the real buildings (M4 row)
+- ☐ Design cards A and B in a panel, with Tabs (UI)
+- ☐ Map toggles for design A / design B (UI)
+- ☐ Tests for the design maths
+
+### M5: polish
+
+- ☐ Styling pass, so it looks client-ready (M5 row)
+- ☐ Loading states (M5 row)
+- ☐ Edge-case sweep: self-intersecting plot, tiny plot, zone crossing (M5 row; most already handled in M2 and M3)
+- ☐ Phone check of the final version (M5 row, Phone screens)
+- ☐ Performance check on a normal laptop (M5 row)
+- ☐ README (M5 row)
+
+### Code freeze and Saturday
+
+- ☐ Coding stops Friday evening; the evening is for the user's doc
+- ☐ Saturday morning: final small fixes only, then submit before 11:14 IST
 
 ## Phone screens
 

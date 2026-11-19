@@ -21,6 +21,11 @@ export interface EnvelopeInput {
   roadWidthM: number;
   /** Flat cap on top of the height plane, m (mid-rise limit, or a display limit). */
   capM: number;
+  /**
+   * Apply the road height plane (MR 55 cl. 44). Off = flat top at capM, to show
+   * what the plane takes away. Default on.
+   */
+  heightPlane?: boolean;
 }
 
 export interface EnvelopeMesh {
@@ -89,6 +94,7 @@ const polygonArea = (p: PcPolygon) =>
  */
 export function computeEnvelope(input: EnvelopeInput): Envelope {
   const { ring, frontageEdge, roadSetbackM, sideSetbackM, roadWidthM: W, capM } = input;
+  const usePlane = input.heightPlane ?? true;
   const n = ring.length;
   if (n < 3) return { footprint: [], footprintM2: 0, frontHeightM: 0, maxHeightM: 0, mesh: EMPTY };
 
@@ -103,7 +109,8 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
   const nx = -uy * orient;
   const ny = ux * orient;
   const dist = (x: number, y: number) => (x - fa[0]) * nx + (y - fa[1]) * ny;
-  const heightAt = (x: number, y: number) => Math.min(capM, 2 * (Math.max(0, dist(x, y)) + W));
+  const heightAt = (x: number, y: number) =>
+    usePlane ? Math.min(capM, 2 * (Math.max(0, dist(x, y)) + W)) : capM;
 
   let footprint: MultiPolygon;
   try {
@@ -132,7 +139,8 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
     return { footprint, footprintM2: 0, frontHeightM: 0, maxHeightM: 0, mesh: EMPTY };
 
   // Split at the contour where the plane reaches the cap: sloped part / flat part.
-  const dCap = capM / 2 - W;
+  // Without the plane the top is flat: no split needed.
+  const dCap = usePlane ? capM / 2 - W : -Infinity;
   const BIG = 1e5;
   const halfPlane = (from: number, to: number): PcPolygon => {
     const p = (t: number, d: number): [number, number] => [
@@ -199,4 +207,26 @@ export function computeEnvelope(input: EnvelopeInput): Envelope {
     maxHeightM: maxH,
     mesh,
   };
+}
+
+/** Assumed floor-to-floor height for the display cap, m (notes 5e: 3.0 m residential). */
+const CAP_FLOOR_M = 3;
+
+/**
+ * How high to draw a high-rise envelope. There is no fixed height limit in ย.9;
+ * FAR limits floor area. The plan: "the height needed for full FAR + margin, so it
+ * reads on screen". Two parts, the larger wins, rounded up to 10 m:
+ * - full FAR stacked on the usable footprint, plus 25%;
+ * - the road plane's height at the building line plus 30 m, so the slope of the
+ *   height rule stays visible above it.
+ */
+export function highRiseDisplayCap(input: {
+  gfaM2: number;
+  usableFootprintM2: number;
+  frontPlaneM: number;
+}): number {
+  const { gfaM2, usableFootprintM2, frontPlaneM } = input;
+  const forFar = usableFootprintM2 > 0 ? (gfaM2 / usableFootprintM2) * CAP_FLOOR_M * 1.25 : 0;
+  const forSlope = frontPlaneM + 30;
+  return Math.ceil(Math.max(forFar, forSlope, 30) / 10) * 10;
 }

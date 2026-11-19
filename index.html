@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MCP Viewer</title>
+<style>
+  body{font:15px/1.5 system-ui,sans-serif;max-width:900px;margin:30px auto;padding:0 16px;background:#fafafa;color:#222}
+  button{margin:0 8px 8px 0;padding:8px 14px;font-size:14px;cursor:pointer}
+  pre{white-space:pre-wrap;background:#fff;border:1px solid #ddd;padding:16px;border-radius:6px}
+</style>
+<h2>General Machines MCP server viewer</h2>
+<p>Read-only: these buttons never call <code>start_assignment</code>, so no clock starts.</p>
+<button onclick="call('tools/call',{name:'get_assignment',arguments:{}})">Read assignment overview</button>
+<button onclick="call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'viewer',version:'1'}})">Server info</button>
+<button onclick="call('tools/list')">List tools</button>
+<pre id="out">Click a button.</pre>
+<script>
+async function call(method, params){
+  const out = document.getElementById('out');
+  out.textContent = 'Loading...';
+  try{
+    const r = await fetch('https://siliconbricks.co/hiring/mcp',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json, text/event-stream'},
+      body:JSON.stringify({jsonrpc:'2.0',id:1,method,...(params?{params}:{})})
+    });
+    const d = await r.json();
+    out.textContent = d.result?.content?.[0]?.text ?? JSON.stringify(d.result ?? d, null, 2);
+  }catch(e){ out.textContent = 'Error: ' + e; }
+}
+</script>

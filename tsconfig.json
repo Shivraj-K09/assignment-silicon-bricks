@@ -10,8 +10,12 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["vite/client"],
-    "paths": { "@/*": ["./src/*"] }
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src"]
+  "include": ["src", "tests"]
 }

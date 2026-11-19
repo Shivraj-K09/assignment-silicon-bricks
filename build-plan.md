@@ -13,7 +13,7 @@ Rules and numbers come from `research-notes.md` (sections 2, 3, 3b, 4, 5a, 5e, 5
 - **Geometry**: `@turf/turf` (area, centroid, point-in-polygon, line buffer) + `polygon-clipping` (difference/intersection). All maths in a local metric frame (metres east/north of the plot centroid), converted back to lon/lat only for drawing.
 - **UI**: React components built from shadcn parts — left panel for inputs and rules, right panel for designs and checklists. The map is created once in `map-view.tsx` (inside an absolute wrapper, since MapLibre's CSS forces `position: relative`); React state changes update map sources and the Three.js layer, never re-create the map.
 - **State**: one React state object (plot, frontage edge, road width, building type); rules, envelope and designs are derived from it with `useMemo` — pure functions, so they are testable and fast.
-- **Tests**: Vitest for the rules, envelope and design maths.
+- **Tests**: Node's built-in test runner (`node --test`, `npm test`) for the rules, envelope and design maths. Test files live in `tests/` (`*.test.ts`) and import with `.ts` extensions. Node 24 runs TypeScript directly.
 
 ## Conventions
 
@@ -26,7 +26,7 @@ Rules and numbers come from `research-notes.md` (sections 2, 3, 3b, 4, 5a, 5e, 5
 - MapLibre's worker is copied to `public/` by `scripts/setup-map-worker.mjs` (postinstall / predev / prebuild) and set with `setWorkerUrl`, because Vite's `?url` import fails on this path.
 - Font files can't go through Vite's asset loader here, so Geist comes from Google Fonts.
 - The shadcn CLI writes `import { cn } from "cn"` on this path; fix to `@/lib/utils` after every `shadcn add`.
-- The old MCP viewer page moved to `public/mcp-viewer.html`.
+- Vitest cannot load test files from this path (it also breaks at a drive root via `subst`), so tests use Node's built-in runner instead.
 
 ## Data prep (scripts in `scripts/`, run once, output to `public/data/`)
 
@@ -45,7 +45,7 @@ Rules and numbers come from `research-notes.md` (sections 2, 3, 3b, 4, 5a, 5e, 5
 - Road width input, presets: Thong Lo 25 m / soi 8 m.
 - Building type: condo / hotel / office.
 
-## Rules engine (`src/lib/rules.ts`, pure functions, unit-tested with Vitest)
+## Rules engine (`src/lib/rules.ts`, pure functions, unit-tested with `node --test`)
 
 Input: plot polygon (m), frontage edge, road width, type, zone. Output: a rules object with every number and its source clause.
 
@@ -91,7 +91,7 @@ Input: plot polygon (m), frontage edge, road width, type, zone. Output: a rules 
 | --------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | M1              | today +2 h         | Vite app on Vercel: map of Thong Lo, sample plot, 3D OSM buildings (real vs estimated), zoning layer. **Plus a test box drawn by a Three.js custom layer inside MapLibre**, checked for position, scale and depth against the real buildings (riskiest part, proven first). |
 | M2              | end of today       | Plot drawing/editing, frontage edge + road + type inputs, rules panel with sources, **and a simple 3D envelope** (setbacks inset + 2× road height plane), all live. **Basic working version.**                                                                              |
-| M3              | Fri AM             | Envelope refined: per-rule toggles, mid-rise vs high-rise envelopes, edge cases; Vitest tests for rules.                                                                                                                                                                    |
+| M3              | Fri AM             | Envelope refined: per-rule toggles, mid-rise vs high-rise envelopes, edge cases; tests for rules.                                                                                                                                                                           |
 | M4              | Fri PM             | Designs A and B with floor tables + checklists, rendered in 3D.                                                                                                                                                                                                             |
 | M5              | Fri late afternoon | Polish: styling, loading states, edge cases (self-intersecting plot, tiny plot, zone crossing), phone check, perf check, README.                                                                                                                                            |
 | **Code freeze** | **Fri evening**    | Coding stops. Evening is for the user to write the doc.                                                                                                                                                                                                                     |

@@ -98,13 +98,16 @@ export default function InputsPanel(p: InputsPanelProps) {
           <p className="text-muted-foreground text-xs leading-relaxed">
             {p.drawing
               ? "Click the map to place corners. Click the first corner again to finish."
-              : "Drag a corner to move it. Drag a small dot on an edge to add a corner. Drag inside the plot to move it."}
+              : "Drag a corner to move it, or drag inside the plot to move the whole plot. For a different number of corners, draw a new plot."}
           </p>
         </section>
 
         {/* Road */}
         <section className="flex flex-col gap-2">
           <Label>Edge facing the road</Label>
+          <p className="text-muted-foreground -mt-1 text-xs">
+            Click or tap an edge (or its number) on the map, or pick it here.
+          </p>
           <Select
             items={edgeItems}
             value={String(p.frontageEdge)}

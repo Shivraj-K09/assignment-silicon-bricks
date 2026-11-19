@@ -1,10 +1,10 @@
+import SegmentedControl, { type SegmentOption } from "@/components/segmented-control";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import type { EnvelopeView } from "@/hooks/use-analysis";
 import type { Envelope } from "@/lib/envelope";
 import { EXTRA_LARGE_M2, HIGH_RISE_M, type EnvelopeKind, type Rules } from "@/lib/rules";
-import { cn } from "@/lib/utils";
 
 const fmt = (n: number, dp = 0) => n.toLocaleString("en-US", { maximumFractionDigits: dp });
 
@@ -16,20 +16,32 @@ interface EnvelopePanelProps {
   onView: (update: (v: EnvelopeView) => EnvelopeView) => void;
 }
 
-const KINDS: { id: EnvelopeView["kind"]; label: string }[] = [
-  { id: "auto", label: "Best allowed" },
-  { id: "high-rise", label: "High-rise" },
-  { id: "mid-rise", label: `Mid-rise < ${HIGH_RISE_M} m` },
+const KIND_OPTIONS: SegmentOption<EnvelopeView["kind"]>[] = [
+  { value: "auto", label: "Best allowed" },
+  { value: "high-rise", label: "High-rise" },
+  { value: "mid-rise", label: `Mid-rise < ${HIGH_RISE_M} m` },
 ];
+
+/** A mid-rise must also stay under the extra-large threshold, or MR 33's 6 m setbacks apply. */
+function maxFloorAreaFor(kind: EnvelopeKind, rules: Rules): number {
+  return kind === "mid-rise" ? Math.min(rules.maxGfaM2, EXTRA_LARGE_M2) : rules.gfaCapM2;
+}
+
+function setbackText(on: boolean, metres: number): string {
+  return on ? fmt(metres, 1) : "off";
+}
 
 export default function EnvelopePanel({ rules, shown, view, onView }: EnvelopePanelProps) {
   const { kind, allowed, capM, envelope } = shown;
   const legal = rules.setbacks[kind];
   const allRulesOn = view.roadSetback && view.sideSetback && view.heightPlane;
-  // A mid-rise must also stay under the extra-large threshold, or MR 33's 6 m setbacks apply.
-  const maxFloorArea =
-    kind === "mid-rise" ? Math.min(rules.maxGfaM2, EXTRA_LARGE_M2) : rules.gfaCapM2;
-  const set = (patch: Partial<EnvelopeView>) => onView((v) => ({ ...v, ...patch }));
+  const hasFootprint = !envelope.error && envelope.footprintM2 > 0;
+
+  const update = (patch: Partial<EnvelopeView>) => onView((current) => ({ ...current, ...patch }));
+  const handleKindChange = (value: EnvelopeView["kind"]) => update({ kind: value });
+  const handleRoadSetbackChange = (roadSetback: boolean) => update({ roadSetback });
+  const handleSideSetbackChange = (sideSetback: boolean) => update({ sideSetback });
+  const handleHeightPlaneChange = (heightPlane: boolean) => update({ heightPlane });
 
   return (
     <Card size="sm">
@@ -46,50 +58,36 @@ export default function EnvelopePanel({ rules, shown, view, onView }: EnvelopePa
           height limit.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="flex flex-col gap-4">
-        {/* Which envelope */}
-        <div className="bg-muted grid grid-cols-3 gap-1 rounded-lg p-1" role="radiogroup">
-          {KINDS.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              role="radio"
-              aria-checked={view.kind === k.id}
-              onClick={() => set({ kind: k.id })}
-              className={cn(
-                "rounded-md px-1.5 py-1.5 text-xs font-medium transition-colors",
-                view.kind === k.id
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {k.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Which envelope"
+          options={KIND_OPTIONS}
+          value={view.kind}
+          onChange={handleKindChange}
+        />
         {!allowed && (
           <p className="text-destructive text-xs">
             A high-rise is not allowed here (see Road access below). Shown for comparison only.
           </p>
         )}
 
-        {/* Numbers */}
-        {envelope.error ? (
-          <p className="text-destructive text-xs">{envelope.error}</p>
-        ) : envelope.footprintM2 === 0 ? (
+        {envelope.error && <p className="text-destructive text-xs">{envelope.error}</p>}
+        {!envelope.error && !hasFootprint && (
           <p className="text-destructive text-xs">
             The setbacks leave no buildable area on this plot. It is too small or too narrow for a{" "}
             {kind} building: the road side needs {fmt(legal.roadM, 1)} m and the other sides{" "}
             {fmt(legal.sideM, 1)} m.
           </p>
-        ) : (
+        )}
+        {hasFootprint && (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <Stat label="Max floor area" value={`${fmt(maxFloorArea)} m²`} />
+            <Stat label="Max floor area" value={`${fmt(maxFloorAreaFor(kind, rules))} m²`} />
             <Stat label="FAR" value={`${rules.far}`} />
             <Stat label="Buildable footprint" value={`${fmt(envelope.footprintM2)} m²`} />
             <Stat
               label="Setbacks road / sides"
-              value={`${view.roadSetback ? fmt(legal.roadM, 1) : "off"} / ${view.sideSetback ? fmt(legal.sideM, 1) : "off"} m`}
+              value={`${setbackText(view.roadSetback, legal.roadM)} / ${setbackText(view.sideSetback, legal.sideM)} m`}
             />
             <Stat label="Height at building line" value={`${fmt(envelope.frontHeightM, 1)} m`} />
             <Stat
@@ -98,7 +96,7 @@ export default function EnvelopePanel({ rules, shown, view, onView }: EnvelopePa
             />
           </dl>
         )}
-        {kind === "high-rise" && !envelope.error && envelope.footprintM2 > 0 && (
+        {kind === "high-rise" && hasFootprint && (
           <p className="text-muted-foreground text-xs leading-relaxed">
             There is no fixed height limit in this zone: floor area (FAR) limits the building. The
             envelope is drawn up to {fmt(capM)} m, enough for the full floor area on this footprint
@@ -106,7 +104,6 @@ export default function EnvelopePanel({ rules, shown, view, onView }: EnvelopePa
           </p>
         )}
 
-        {/* Rule switches */}
         <section className="flex flex-col gap-2">
           <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
             See what each rule does
@@ -115,19 +112,19 @@ export default function EnvelopePanel({ rules, shown, view, onView }: EnvelopePa
             label="Setback from the road"
             detail={`${fmt(legal.roadM, 1)} m`}
             checked={view.roadSetback}
-            onChange={(v) => set({ roadSetback: v })}
+            onChange={handleRoadSetbackChange}
           />
           <RuleSwitch
             label="Setback from neighbours"
             detail={`${fmt(legal.sideM, 1)} m`}
             checked={view.sideSetback}
-            onChange={(v) => set({ sideSetback: v })}
+            onChange={handleSideSetbackChange}
           />
           <RuleSwitch
             label="Height from the road"
             detail="≤ 2 × distance to far side of road"
             checked={view.heightPlane}
-            onChange={(v) => set({ heightPlane: v })}
+            onChange={handleHeightPlaneChange}
           />
           <p className="text-muted-foreground text-xs">
             Switch a rule off to see the space it takes away. The legal envelope has all of them on.
@@ -147,7 +144,7 @@ function RuleSwitch({
   label: string;
   detail: string;
   checked: boolean;
-  onChange: (v: boolean) => void;
+  onChange: (checked: boolean) => void;
 }) {
   return (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border px-2.5 py-2">
@@ -155,7 +152,7 @@ function RuleSwitch({
         <span className="text-sm">{label}</span>
         <span className="text-muted-foreground text-xs">{detail}</span>
       </span>
-      <Switch checked={checked} onCheckedChange={(v) => onChange(v)} />
+      <Switch checked={checked} onCheckedChange={onChange} />
     </label>
   );
 }

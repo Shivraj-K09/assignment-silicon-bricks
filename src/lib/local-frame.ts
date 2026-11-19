@@ -56,16 +56,3 @@ export function ringEdges(ring: XY[]): Edge[] {
     return { index, a, b, lengthM: Math.hypot(b[0] - a[0], b[1] - a[1]) };
   });
 }
-
-/**
- * Signed distance from point p to the infinite line through edge a->b, positive on
- * the side where `inside` lies. Used for the road height plane.
- */
-export function distanceFromLine(p: XY, a: XY, b: XY, inside: XY): number {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy);
-  const d = ((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) / len;
-  const s = ((inside[0] - a[0]) * dy - (inside[1] - a[1]) * dx) / len;
-  return s >= 0 ? d : -d;
-}

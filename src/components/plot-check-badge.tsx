@@ -1,7 +1,26 @@
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { BuildingOverlap } from "@/lib/building-overlap";
 import type { DataCoverage, RoadCrossing } from "@/lib/site";
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** A badge with a tooltip that explains it. */
+function ExplainedBadge({ ok, label, detail }: { ok: boolean; label: string; detail: string }) {
+  const Icon = ok ? CircleCheck : TriangleAlert;
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span />}>
+        <Badge variant={ok ? "outline" : "destructive"}>
+          <Icon aria-hidden />
+          {label}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">{detail}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * Says whether the plot line cuts through any existing building. A real plot
@@ -15,30 +34,37 @@ export default function PlotCheckBadge({
   coverage: DataCoverage;
 }) {
   if (!overlaps) return null;
-  // Outside the data area there is nothing to check against: say so, not "✓".
-  if (coverage === "outside")
-    return <Badge variant="destructive">⚠ No building data here, plot not checked</Badge>;
+
+  // Outside the data area there is nothing to check against: say so, not "OK".
+  if (coverage === "outside") {
+    return (
+      <ExplainedBadge
+        ok={false}
+        label="No building data here, plot not checked"
+        detail="The plot is outside the area with OpenStreetMap buildings and roads (purple dashed line), so neighbours cannot be checked."
+      />
+    );
+  }
 
   const colliding = overlaps.filter((o) => o.status === "colliding");
-  const onPlot = overlaps.length - colliding.length;
-  const n = colliding.length;
-  const cutM2 = colliding.reduce((sum, o) => sum + o.overlapM2, 0);
-  const label =
-    n === 0 ? "Plot line cuts no buildings" : `Plot line cuts ${n} building${n === 1 ? "" : "s"}`;
-  const detail =
-    n === 0
-      ? `${onPlot} existing building${onPlot === 1 ? "" : "s"} on the plot will be demolished.`
-      : `The plot boundary runs through ${n} neighbouring building${n === 1 ? "" : "s"} (${Math.round(cutM2)} m² inside the plot), shown in red. Drag the corners so the line follows the gaps between buildings.`;
+  const demolished = overlaps.length - colliding.length;
+  const cutM2 = Math.round(colliding.reduce((sum, o) => sum + o.overlapM2, 0));
 
+  if (colliding.length === 0) {
+    return (
+      <ExplainedBadge
+        ok
+        label="Plot line cuts no buildings"
+        detail={`${plural(demolished, "existing building")} on the plot will be demolished.`}
+      />
+    );
+  }
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span />}>
-        <Badge variant={n === 0 ? "outline" : "destructive"}>
-          {n === 0 ? "✓" : "⚠"} {label}
-        </Badge>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{detail}</TooltipContent>
-    </Tooltip>
+    <ExplainedBadge
+      ok={false}
+      label={`Plot line cuts ${plural(colliding.length, "building")}`}
+      detail={`The plot boundary runs through ${plural(colliding.length, "neighbouring building")} (${cutM2} m² inside the plot), shown in red. Drag the corners so the line follows the gaps between buildings.`}
+    />
   );
 }
 
@@ -46,18 +72,12 @@ export default function PlotCheckBadge({
 export function RoadCrossingBadge({ crossings }: { crossings: RoadCrossing[] }) {
   if (!crossings.length) return null;
   const names = crossings.map((c) => c.name).join(", ");
+  const lengths = crossings.map((c) => `${c.name}, ${Math.round(c.insideM)} m inside`).join("; ");
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span />}>
-        <Badge variant="destructive">⚠ Plot crosses {names}</Badge>
-      </TooltipTrigger>
-      <TooltipContent className="max-w-xs">
-        {`A public road runs through the plot (${crossings
-          .map((c) => `${c.name}, ${Math.round(c.insideM)} m inside`)
-          .join(
-            "; ",
-          )}), shown in red. A plot cannot include a public road. Private driveways are not counted.`}
-      </TooltipContent>
-    </Tooltip>
+    <ExplainedBadge
+      ok={false}
+      label={`Plot crosses ${names}`}
+      detail={`A public road runs through the plot (${lengths}), shown in red. A plot cannot include a public road. Private driveways are not counted.`}
+    />
   );
 }

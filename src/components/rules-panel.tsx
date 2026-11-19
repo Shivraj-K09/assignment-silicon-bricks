@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SOURCES, type RuleItem, type Rules, type Status } from "@/lib/rules";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ function RuleRow({ item }: { item: RuleItem }) {
   const st = STATUS[item.status];
   return (
     <li className="rounded-lg border p-2.5">
-      <details>
+      <details className="group">
         <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
           <span
             className={cn("mt-1.5 size-2 shrink-0 rounded-full", st.dot)}
@@ -65,7 +66,13 @@ function RuleRow({ item }: { item: RuleItem }) {
             <span className="text-sm">{item.title}</span>
             <span className="text-sm font-medium tabular-nums">{item.value}</span>
           </span>
-          <span className="text-muted-foreground text-xs">Why ▾</span>
+          <span className="text-muted-foreground flex items-center gap-0.5 text-xs">
+            Why
+            <ChevronDown
+              className="size-3.5 transition-transform group-open:rotate-180"
+              aria-hidden
+            />
+          </span>
         </summary>
         <div className="mt-2 flex flex-col gap-1.5 pl-4">
           <p className="text-muted-foreground text-xs leading-relaxed">{item.detail}</p>

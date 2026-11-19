@@ -93,7 +93,6 @@ export interface DesignTotals {
   far: number;
   storeys: number;
   roofM: number;
-  topM: number;
   footprintM2: number;
   openSpaceM2: number;
   /** Condo only. */
@@ -198,9 +197,8 @@ function insideIntervals(uvRings: XY[][], v: number): [number, number][] {
     for (let i = 0; i < r.length - 1; i++) {
       const [u1, v1] = r[i];
       const [u2, v2] = r[i + 1];
-      if (v1 === v2) continue;
-      if ((v >= Math.min(v1, v2) && v < Math.max(v1, v2)) || v === Math.max(v1, v2)) {
-        if (v === Math.max(v1, v2)) continue;
+      // Half-open [min, max): a line through a vertex is counted once, not twice.
+      if (v >= Math.min(v1, v2) && v < Math.max(v1, v2)) {
         xs.push(u1 + ((v - v1) * (u2 - u1)) / (v2 - v1));
       }
     }
@@ -307,6 +305,11 @@ function frontFace(shape: MultiPolygon, f: Frame) {
   return { perimeter, faceLen, distanceM: vFront };
 }
 
+/** Area of a shape lying outside the envelope footprint, m² (0 if it cannot be computed). */
+function areaOutside(shape: MultiPolygon, envelopeFootprint: MultiPolygon): number {
+  return areaOf(safe(() => pc.difference(shape, envelopeFootprint)));
+}
+
 // ---- Parking (Bangkok ordinance cl. 83–85) ----------------------------------------
 
 /** Spaces for a hotel by room count, cl. 84(2). */
@@ -359,7 +362,7 @@ const MAIN_USE: Record<BuildingType, Use> = {
 /** Checklist rows both designs share. `ground` is the footprint on the ground. */
 function commonChecks(
   input: DesignInput,
-  d: { gfa: number; ground: MultiPolygon; topM: number; roofM: number; parts: DesignPart[] },
+  d: { gfa: number; ground: MultiPolygon; parts: DesignPart[] },
   f: Frame,
   envelopeFootprint: MultiPolygon,
   setbacks: { roadM: number; sideM: number },
@@ -403,13 +406,7 @@ function commonChecks(
     ],
   });
 
-  const outside = (() => {
-    try {
-      return areaOf(pc.difference(d.ground, envelopeFootprint));
-    } catch {
-      return 0;
-    }
-  })();
+  const outside = areaOutside(d.ground, envelopeFootprint);
   rows.push({
     id: "setbacks",
     label: "Setbacks",
@@ -562,7 +559,6 @@ function totalsFor(
     far: gfa / input.areaM2,
     storeys: parts.reduce((s, p) => s + p.floors, 0),
     roofM: roof,
-    topM: roof > 0 ? roof + PARAPET_M : 0,
     footprintM2: areaOf(ground),
     openSpaceM2: input.areaM2 - areaOf(ground),
     parkingRequired: parking.required,
@@ -589,7 +585,6 @@ function infeasible(id: "A" | "B", name: string, why: string): Design {
       far: 0,
       storeys: 0,
       roofM: 0,
-      topM: 0,
       footprintM2: 0,
       openSpaceM2: 0,
       parkingRequired: 0,
@@ -606,6 +601,50 @@ function infeasible(id: "A" | "B", name: string, why: string): Design {
       },
     ],
     feasible: false,
+  };
+}
+
+// ---- Design A checks ----------------------------------------------------------------------
+
+/** How the parking requirement is worded in the checklist (Bangkok ordinance cl. 84). */
+const PARKING_RULE_TEXT: Record<BuildingType, string> = {
+  condo: "1 per 120 m²",
+  hotel: "the larger of the room rule and 1 per 120 m²",
+  office: "1 per 60 m²",
+};
+
+/** MR 33 cl. 2: a high-rise needs frontage on a wide enough public road. */
+function highRiseAccessCheck(input: DesignInput, totals: DesignTotals): CheckRow {
+  const { rules, roadWidthM: W, frontageM } = input;
+  const needsWiderRoad = totals.gfaM2 > VERY_LARGE_M2 && W < 18;
+  const passes = rules.highRiseAllowed && !needsWiderRoad;
+  let value = "OK";
+  if (!rules.highRiseAllowed) value = "Not allowed on this road";
+  else if (needsWiderRoad) value = "Road too narrow for this size";
+  return {
+    id: "highrise-access",
+    label: "Road access for a high-rise",
+    value,
+    status: passes ? "pass" : "fail",
+    detail: `At ${fmt(totals.roofM, 1)} m this is a high-rise (≥ ${HIGH_RISE_M} m): it needs ≥ 12 m frontage on a public road ≥ 10 m wide (≥ 18 m above ${fmt(VERY_LARGE_M2)} m²). This plot: ${fmt(frontageM, 1)} m on a ${fmt(W)} m road.`,
+    cite: [{ source: "mr33", clause: "cl. 2" }],
+  };
+}
+
+/** Tolerance for the 6 m fire road, m (drawing precision). */
+const FIRE_ROAD_TOLERANCE_M = 0.05;
+
+/** MR 33 cl. 3: a 6 m fire-truck road all around a high-rise. */
+function fireAccessCheck(building: MultiPolygon, ring: XY[], frontageEdge: number): CheckRow {
+  const gap = minSideGap(building, ring, frontageEdge);
+  return {
+    id: "fire-road",
+    label: "6 m fire-truck access around",
+    value: `${fmt(gap, 1)} m to the nearest side boundary`,
+    status: gap >= 6 - FIRE_ROAD_TOLERANCE_M ? "pass" : "fail",
+    detail:
+      "A high-rise needs a 6 m fire-truck road all around. Checked as at least 6 m between the building and every side boundary; on the road side the public road counts.",
+    cite: [{ source: "mr33", clause: "cl. 3" }],
   };
 }
 
@@ -701,45 +740,13 @@ export function designA(input: DesignInput): Design {
   const totals = totalsFor(input, parts, podium, { required: best.spaces, provided });
 
   const checklist = [
-    ...commonChecks(
-      input,
-      { gfa: totals.gfaM2, ground: podium, topM: totals.topM, roofM: totals.roofM, parts },
-      f,
-      env,
-      sb,
-      {
-        required: best.spaces,
-        provided,
-        note: `${best.k} podium parking floor(s) of ${fmt(P)} m². Required: ${type === "office" ? "1 per 60 m²" : type === "hotel" ? "the larger of the room rule and 1 per 120 m²" : "1 per 120 m²"} of non-parking floor area.`,
-      },
-    ),
-    {
-      id: "highrise-access",
-      label: "Road access for a high-rise",
-      value: rules.highRiseAllowed
-        ? totals.gfaM2 > VERY_LARGE_M2 && W < 18
-          ? "Road too narrow for this size"
-          : "OK"
-        : "Not allowed on this road",
-      status:
-        rules.highRiseAllowed && !(totals.gfaM2 > VERY_LARGE_M2 && W < 18)
-          ? ("pass" as const)
-          : ("fail" as const),
-      detail: `At ${fmt(totals.roofM, 1)} m this is a high-rise (≥ ${HIGH_RISE_M} m): it needs ≥ 12 m frontage on a public road ≥ 10 m wide (≥ 18 m above ${fmt(VERY_LARGE_M2)} m²). This plot: ${fmt(input.frontageM, 1)} m on a ${fmt(W)} m road.`,
-      cite: [{ source: "mr33", clause: "cl. 2" }],
-    } satisfies CheckRow,
-    (() => {
-      const gap = minSideGap(podium, ring, frontageEdge);
-      return {
-        id: "fire-road",
-        label: "6 m fire-truck access around",
-        value: `${fmt(gap, 1)} m to the nearest side boundary`,
-        status: gap >= 6 - 0.05 ? ("pass" as const) : ("fail" as const),
-        detail:
-          "A high-rise needs a 6 m fire-truck road all around. Checked as at least 6 m between the building and every side boundary; on the road side the public road counts.",
-        cite: [{ source: "mr33", clause: "cl. 3" }],
-      } satisfies CheckRow;
-    })(),
+    ...commonChecks(input, { gfa: totals.gfaM2, ground: podium, parts }, f, env, sb, {
+      required: best.spaces,
+      provided,
+      note: `${best.k} podium parking floor(s) of ${fmt(P)} m². Required: ${PARKING_RULE_TEXT[type]} of non-parking floor area.`,
+    }),
+    highRiseAccessCheck(input, totals),
+    fireAccessCheck(podium, ring, frontageEdge),
     ...useChecks(input, totals.gfaM2, totals.rooms ?? 0, totals.units?.total ?? 0),
   ];
 
@@ -850,18 +857,11 @@ export function designB(input: DesignInput): Design {
   const totals = totalsFor(input, parts, block, { required, provided });
 
   const checklist = [
-    ...commonChecks(
-      input,
-      { gfa: totals.gfaM2, ground: block, topM: totals.topM, roofM: totals.roofM, parts },
-      f,
-      env,
-      sb,
-      {
-        required,
-        provided,
-        note: `${covered} covered on the ground floor (${fmt(GROUND_PARKING_SHARE * 100)}% of it) + ${openAir} open-air in the open space (at most half of it).`,
-      },
-    ),
+    ...commonChecks(input, { gfa: totals.gfaM2, ground: block, parts }, f, env, sb, {
+      required,
+      provided,
+      note: `${covered} covered on the ground floor (${fmt(GROUND_PARKING_SHARE * 100)}% of it) + ${openAir} open-air in the open space (at most half of it).`,
+    }),
     {
       id: "not-highrise",
       label: "Stays a mid-rise",

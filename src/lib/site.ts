@@ -102,7 +102,6 @@ export interface FrontageGuess {
   edge: number;
   roadName: string;
   /** True for a main road (secondary or above), false for a soi. */
-  isMainRoad: boolean;
   /** Default legal width for the road: 25 m for Thong Lo / main roads, 8 m for a soi. */
   defaultWidthM: number;
 }
@@ -149,7 +148,6 @@ export function guessFrontage(
   return {
     edge: best.edge,
     roadName: name === "Soi Sukhumvit 55" ? "Thong Lo (Sukhumvit Soi 55)" : name,
-    isMainRoad,
     defaultWidthM: isMainRoad ? MAIN_ROAD_WIDTH_M : SOI_WIDTH_M,
   };
 }
@@ -173,7 +171,6 @@ export function roadForEdge(
   const name = best.road?.properties.nameEn ?? best.road?.properties.name ?? "Unnamed road";
   return {
     roadName: name === "Soi Sukhumvit 55" ? "Thong Lo (Sukhumvit Soi 55)" : name,
-    isMainRoad,
     defaultWidthM: isMainRoad ? MAIN_ROAD_WIDTH_M : SOI_WIDTH_M,
     distanceM: best.d,
   };

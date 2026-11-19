@@ -23,6 +23,7 @@ import {
 import { useSiteData } from "@/hooks/use-site-data";
 import { plotRing, ringEdges, type Edge } from "@/lib/local-frame";
 import { SAMPLE_FRONTAGE_EDGE, SAMPLE_PLOT } from "@/lib/sample-plot";
+import type { BuildingType } from "@/lib/rules";
 import { guessFrontage, MAIN_ROAD_WIDTH_M, roadForEdge } from "@/lib/site";
 
 const INITIAL: SiteInputs = {
@@ -42,7 +43,7 @@ function matchFrontage(old: Edge, edges: Edge[]): number | null {
   const ux = (old.b[0] - old.a[0]) / len;
   const uy = (old.b[1] - old.a[1]) / len;
   const off = (p: [number, number]) => Math.abs((p[0] - old.a[0]) * uy - (p[1] - old.a[1]) * ux);
-  const along = (e: Edge) => edges.indexOf(e) >= 0 && off(e.a) < 1 && off(e.b) < 1;
+  const along = (e: Edge) => off(e.a) < 1 && off(e.b) < 1;
   const candidates = edges.filter(along).sort((a, b) => b.lengthM - a.lengthM);
   return candidates[0]?.index ?? null;
 }
@@ -72,7 +73,7 @@ export default function App() {
     />
   );
 
-  const onPlotChange = useCallback(
+  const handlePlotChange = useCallback(
     (plot: Feature<Polygon>, kind: PlotChangeKind) => {
       setInputs((prev) => {
         const prevEdges = ringEdges(plotRing(prev.plot, FRAME));
@@ -96,7 +97,18 @@ export default function App() {
     [data],
   );
 
-  const onFrontageEdge = (edge: number) => {
+  const handleDrawToggle = () => setDrawing((isDrawing) => !isDrawing);
+  const handleDrawingEnd = () => setDrawing(false);
+  const handleReset = () => {
+    setDrawing(false);
+    setInputs(INITIAL);
+    setView(DEFAULT_VIEW);
+  };
+  const handleRoadWidth = (roadWidthM: number) => setInputs((prev) => ({ ...prev, roadWidthM }));
+  const handleBuildingType = (buildingType: BuildingType) =>
+    setInputs((prev) => ({ ...prev, buildingType }));
+
+  const handleFrontageEdge = (edge: number) => {
     if (!data) return;
     const r = roadForEdge(inputs.plot, edge, data.roads, FRAME);
     setInputs((prev) => ({
@@ -145,9 +157,9 @@ export default function App() {
                   roadCrossings={site?.roadCrossings ?? []}
                   envelope={envelope}
                   drawing={drawing}
-                  onPlotChange={onPlotChange}
-                  onDrawingEnd={() => setDrawing(false)}
-                  onEdgeClick={onFrontageEdge}
+                  onPlotChange={handlePlotChange}
+                  onDrawingEnd={handleDrawingEnd}
+                  onEdgeClick={handleFrontageEdge}
                   layers={layers}
                   design={layers.design ? design : null}
                 />
@@ -181,15 +193,11 @@ export default function App() {
               }
               coverage={geometry.coverage}
               roadCrossings={site?.roadCrossings ?? []}
-              onDrawToggle={() => setDrawing((d) => !d)}
-              onReset={() => {
-                setDrawing(false);
-                setInputs(INITIAL);
-                setView(DEFAULT_VIEW);
-              }}
-              onFrontageEdge={onFrontageEdge}
-              onRoadWidth={(m) => setInputs((prev) => ({ ...prev, roadWidthM: m }))}
-              onBuildingType={(t) => setInputs((prev) => ({ ...prev, buildingType: t }))}
+              onDrawToggle={handleDrawToggle}
+              onReset={handleReset}
+              onFrontageEdge={handleFrontageEdge}
+              onRoadWidth={handleRoadWidth}
+              onBuildingType={handleBuildingType}
             />
             {!rules && !error && (
               <Card size="sm" className="text-muted-foreground px-4 text-sm">
@@ -208,7 +216,7 @@ export default function App() {
             )}
           </aside>
 
-          <aside className="bg-muted/30 hidden min-h-0 w-[420px] flex-none flex-col gap-3 overflow-y-auto border-l p-3 *:shrink-0 lg:order-3 lg:flex">
+          <aside className="bg-muted/30 hidden min-h-0 w-105 flex-none flex-col gap-3 overflow-y-auto border-l p-3 *:shrink-0 lg:order-3 lg:flex">
             {designPanel}
           </aside>
         </div>

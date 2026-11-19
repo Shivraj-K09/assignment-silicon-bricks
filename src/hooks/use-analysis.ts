@@ -174,6 +174,5 @@ export function useAnalysis(
   );
   const designsStale = deferredInput !== designInput;
 
-  return { geometry, site, rules, envelope, shown, frontageM, designs, designsStale };
+  return { geometry, site, rules, envelope, shown, designs, designsStale };
 }
-export type Analysis = ReturnType<typeof useAnalysis>;

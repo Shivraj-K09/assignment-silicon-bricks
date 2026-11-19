@@ -129,7 +129,6 @@ export interface Rules {
   setbacks: Record<EnvelopeKind, { roadM: number; sideM: number }>;
   /** Max height of a mid-rise building (just under the high-rise line). */
   midRiseMaxM: number;
-  roadWidthM: number;
   footprintMaxShare: number;
   openSpaceMinShareOfPlot: number;
   items: RuleItem[];
@@ -375,7 +374,6 @@ export function computeRules(input: RulesInput): Rules {
     envelopeKind: kind,
     setbacks,
     midRiseMaxM: HIGH_RISE_M,
-    roadWidthM: W,
     footprintMaxShare,
     openSpaceMinShareOfPlot: openMinShare,
     items,

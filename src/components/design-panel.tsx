@@ -1,20 +1,13 @@
+import { CircleCheck, CircleX, Flag, Info, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { CheckRow, CheckStatus, Design, Use } from "@/lib/designs";
+import { USE_COLOURS } from "@/lib/colours";
 import { SOURCES } from "@/lib/rules";
 import { cn } from "@/lib/utils";
 
 const fmt = (n: number, dp = 0) => n.toLocaleString("en-US", { maximumFractionDigits: dp });
-
-/** Colours shared with the 3D massing on the map. */
-export const USE_COLOURS: Record<Use, string> = {
-  lobby: "#f59e0b",
-  parking: "#94a3b8",
-  residential: "#60a5fa",
-  hotel: "#a78bfa",
-  office: "#34d399",
-};
 
 const USE_LABEL: Record<Use, string> = {
   lobby: "Lobby",
@@ -24,11 +17,11 @@ const USE_LABEL: Record<Use, string> = {
   office: "Office",
 };
 
-const STATUS: Record<CheckStatus, { icon: string; className: string; label: string }> = {
-  pass: { icon: "✓", className: "text-emerald-600", label: "Pass" },
-  fail: { icon: "✗", className: "text-red-600", label: "Fail" },
-  flag: { icon: "⚑", className: "text-amber-600", label: "Flag" },
-  info: { icon: "i", className: "text-slate-500", label: "Info" },
+const STATUS: Record<CheckStatus, { Icon: LucideIcon; className: string; label: string }> = {
+  pass: { Icon: CircleCheck, className: "text-emerald-600", label: "Pass" },
+  fail: { Icon: CircleX, className: "text-red-600", label: "Fail" },
+  flag: { Icon: Flag, className: "text-amber-600", label: "Flag" },
+  info: { Icon: Info, className: "text-slate-500", label: "Info" },
 };
 
 interface DesignPanelProps {
@@ -40,6 +33,8 @@ interface DesignPanelProps {
 }
 
 export default function DesignPanel({ designs, selected, onSelect, stale }: DesignPanelProps) {
+  const handleTabChange = (value: unknown) => onSelect(value as "A" | "B");
+
   return (
     <Card size="sm">
       <CardHeader>
@@ -56,7 +51,7 @@ export default function DesignPanel({ designs, selected, onSelect, stale }: Desi
         {!designs ? (
           <p className="text-muted-foreground text-sm">Loading…</p>
         ) : (
-          <Tabs value={selected} onValueChange={(v) => onSelect(v as "A" | "B")}>
+          <Tabs value={selected} onValueChange={handleTabChange}>
             <TabsList className="w-full">
               {designs.map((d) => (
                 <TabsTrigger key={d.id} value={d.id} className="flex-1 gap-1.5">
@@ -79,14 +74,18 @@ export default function DesignPanel({ designs, selected, onSelect, stale }: Desi
 
 function ScoreBadge({ design }: { design: Design }) {
   const failed = design.checklist.filter((c) => c.status === "fail").length;
+  const label = failed ? `${failed} failing check${failed === 1 ? "" : "s"}` : "All checks pass";
   return (
     <span
+      title={label}
+      aria-label={label}
       className={cn(
-        "rounded px-1 text-[10px] font-semibold tabular-nums",
+        "inline-flex items-center gap-0.5 rounded px-1 text-[10px] font-semibold tabular-nums",
         failed ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700",
       )}
     >
-      {failed ? `${failed} ✗` : "✓"}
+      {failed > 0 && failed}
+      {failed ? <CircleX className="size-3" /> : <CircleCheck className="size-3" />}
     </span>
   );
 }
@@ -210,17 +209,12 @@ function FloorTable({ design }: { design: Design }) {
 }
 
 function CheckItem({ row }: { row: CheckRow }) {
-  const st = STATUS[row.status];
+  const { Icon, className, label } = STATUS[row.status];
   return (
     <li className="rounded-md border px-2 py-1.5">
       <details>
         <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">
-          <span
-            className={cn("w-3 shrink-0 text-center font-bold", st.className)}
-            aria-label={st.label}
-          >
-            {st.icon}
-          </span>
+          <Icon className={cn("mt-0.5 size-4 shrink-0", className)} aria-label={label} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-sm">{row.label}</span>
             <span className="text-muted-foreground text-xs tabular-nums">{row.value}</span>
@@ -228,7 +222,7 @@ function CheckItem({ row }: { row: CheckRow }) {
           {row.status === "fail" && <Badge variant="destructive">Fail</Badge>}
           {row.status === "flag" && <Badge variant="secondary">Flag</Badge>}
         </summary>
-        <div className="mt-1.5 flex flex-col gap-1 pl-5">
+        <div className="mt-1.5 flex flex-col gap-1 pl-6">
           <p className="text-muted-foreground text-xs leading-relaxed">{row.detail}</p>
           <p className="text-xs">
             {row.cite.map((c, i) => {

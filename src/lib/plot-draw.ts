@@ -1,4 +1,4 @@
-/** terra-draw set up for one editable plot: draw a new outline, drag corners. */
+/** terra-draw set up for one editable plot: draw a new outline, drag its corners. */
 import type * as maplibregl from "maplibre-gl";
 import type { Feature, Polygon } from "geojson";
 import { TerraDraw, TerraDrawPolygonMode, TerraDrawSelectMode } from "terra-draw";
@@ -9,11 +9,13 @@ import { COLOURS } from "./colours.ts";
 export const PLOT_ID = "plot";
 
 /**
- * How far (px) terra-draw reaches to grab a corner. Its default, 40 px, would
- * swallow clicks meant to pick an edge as the road side; 24 px is still easy to
- * hit with a finger.
+ * How far (px) terra-draw reaches to grab a corner. On a drag it tries a corner
+ * first and only otherwise moves the whole plot, so this decides which one a drag
+ * does. 14 px is about the drawn corner circle: start on a circle to reshape,
+ * anywhere else inside the plot to move it. (24 px reached so far into a small
+ * plot that moves kept turning into reshapes.)
  */
-const POINTER_PX = 24;
+const POINTER_PX = 14;
 
 const selectMode = () =>
   new TerraDrawSelectMode({

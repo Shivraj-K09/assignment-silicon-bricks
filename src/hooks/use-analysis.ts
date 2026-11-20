@@ -1,4 +1,5 @@
-import { useDeferredValue, useMemo } from "react";
+import { useMemo } from "react";
+import { useSettledValue } from "@/hooks/use-settled-value";
 import { area, centroid, kinks } from "@turf/turf";
 import type { Feature, Polygon } from "geojson";
 import { findBuildingOverlaps } from "@/lib/building-overlap";
@@ -25,6 +26,13 @@ export interface SiteInputs {
 }
 
 /** One fixed local frame for the whole session, centred on the sample plot. */
+/**
+ * How long the inputs must stay still before the slow parts (the two designs,
+ * ~80 ms, and planned roads) are worked out again. Short enough to feel instant
+ * after a click, long enough that a drag never waits on them.
+ */
+const SETTLE_MS = 250;
+
 export const FRAME = makeFrame(centroid(SAMPLE_PLOT).geometry.coordinates as [number, number]);
 
 /** Which envelope to show, and which rules shape it (each can be switched off to see its effect). */
@@ -76,15 +84,20 @@ export function useAnalysis(
     };
   }, [data, plot]);
 
+  // Planned road widenings (~6 ms) only add a note to the rules, so they follow the
+  // plot once it settles rather than on every drag step.
+  const settledPlot = useSettledValue(plot, SETTLE_MS);
   const planned = useMemo(
     () =>
       data
-        ? plannedRoadsNearFrontage(plot, frontageEdge, data.plannedRoads, FRAME).map((r) => ({
-            name: r.properties.name,
-            widthM: r.properties.widthM,
-          }))
+        ? plannedRoadsNearFrontage(settledPlot, frontageEdge, data.plannedRoads, FRAME).map(
+            (r) => ({
+              name: r.properties.name,
+              widthM: r.properties.widthM,
+            }),
+          )
         : [],
-    [data, plot, frontageEdge],
+    [data, settledPlot, frontageEdge],
   );
 
   const frontageM = geometry.edges[frontageEdge]?.lengthM ?? 0;
@@ -146,9 +159,10 @@ export function useAnalysis(
   }, [rules, view, geometry.ring, geometry.areaM2, frontageEdge, roadWidthM]);
   const envelope = shown?.envelope ?? null;
 
-  // The two designs. They take ~30–60 ms, so they run on a deferred copy of the
-  // inputs: while a corner is dragged the map and envelope stay smooth and the
-  // designs catch up as soon as the drag pauses.
+  // The two designs. They take ~80 ms in one block, so they run on a settled copy
+  // of the inputs: while a corner is dragged the map and envelope stay smooth and
+  // the designs catch up once the drag pauses. (React's deferred values would still
+  // run them between drag steps, which made the drag stutter.)
   const designInput = useMemo<DesignInput | null>(() => {
     if (!rules || !site) return null;
     return {
@@ -167,12 +181,12 @@ export function useAnalysis(
       },
     };
   }, [rules, site, geometry, frontageEdge, roadWidthM, frontageM, buildingType]);
-  const deferredInput = useDeferredValue(designInput);
+  const settledInput = useSettledValue(designInput, SETTLE_MS);
   const designs = useMemo(
-    () => (deferredInput ? generateDesigns(deferredInput) : null),
-    [deferredInput],
+    () => (settledInput ? generateDesigns(settledInput) : null),
+    [settledInput],
   );
-  const designsStale = deferredInput !== designInput;
+  const designsStale = settledInput !== designInput;
 
   return { geometry, site, rules, envelope, shown, designs, designsStale };
 }

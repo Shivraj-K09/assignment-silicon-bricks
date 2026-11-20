@@ -5,6 +5,14 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -13,6 +21,8 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
   --color-background: var(--background);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
@@ -44,29 +54,46 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-heading: var(--font-sans);
-  --font-sans: "Geist", sans-serif;
+  --font-sans: "Inter", sans-serif;
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /*
+   * The brand colour, used for every accent in the app (selection, Draw plot,
+   * switches, focus rings). Change these to re-theme the whole tool.
+   */
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+
+  /* Product theme: cool neutral greys, one accent from the brand colour above,
+     green / amber / red only for check results. */
+  --radius: 0.75rem;
+  --background: oklch(0.985 0.003 247);
+  --foreground: oklch(0.21 0.02 257);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.02 257);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.21 0.02 257);
+  --primary: var(--brand-600);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.965 0.005 247);
+  --secondary-foreground: oklch(0.28 0.02 257);
+  --muted: oklch(0.965 0.005 247);
+  --muted-foreground: oklch(0.53 0.02 257);
+  --accent: var(--brand-50);
+  --accent-foreground: var(--brand-700);
+  --destructive: oklch(0.58 0.21 27);
+  --success: oklch(0.6 0.13 155);
+  --warning: oklch(0.7 0.15 70);
+  --border: oklch(0.925 0.006 247);
+  --input: oklch(0.91 0.006 247);
+  --ring: var(--brand-500);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -125,5 +152,16 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Tailwind v4 leaves buttons with the default arrow; anything clickable shows a pointer. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="radio"],
+  [role="switch"],
+  summary,
+  label:has(input, button, [role="switch"]),
+  a[href] {
+    cursor: pointer;
   }
 }

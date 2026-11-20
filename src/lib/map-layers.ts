@@ -75,7 +75,7 @@ export function addZoningLayers(
       id: "zoning-fill",
       type: "fill",
       source: "zoning",
-      paint: { "fill-color": zoneColour, "fill-opacity": 0.12 },
+      paint: { "fill-color": zoneColour, "fill-opacity": 0.07 },
     },
     beforeId,
   );
@@ -84,7 +84,7 @@ export function addZoningLayers(
       id: "zoning-line",
       type: "line",
       source: "zoning",
-      paint: { "line-color": "#7a5230", "line-width": 1.2, "line-dasharray": [3, 2] },
+      paint: { "line-color": "#a8a29e", "line-width": 1, "line-dasharray": [3, 2] },
     },
     beforeId,
   );
@@ -93,7 +93,7 @@ export function addZoningLayers(
     type: "symbol",
     source: "zoning",
     layout: { "text-field": ["get", "zone"], "text-font": ["Noto Sans Regular"], "text-size": 13 },
-    paint: { "text-color": "#7a5230", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
+    paint: { "text-color": "#78716c", "text-halo-color": "#ffffff", "text-halo-width": 1.5 },
   });
 }
 
@@ -164,7 +164,7 @@ export function addBuildingLayers(
       paint: {
         "fill-extrusion-color": buildingColour(COLOURS.realHeight),
         "fill-extrusion-height": ["get", "height"],
-        "fill-extrusion-opacity": 0.95,
+        "fill-extrusion-opacity": 0.9,
       },
     },
     beforeId,
@@ -178,7 +178,7 @@ export function addBuildingLayers(
       paint: {
         "fill-extrusion-color": buildingColour(COLOURS.estimatedHeight),
         "fill-extrusion-height": ["get", "height"],
-        "fill-extrusion-opacity": 0.85,
+        "fill-extrusion-opacity": 0.8,
       },
     },
     beforeId,

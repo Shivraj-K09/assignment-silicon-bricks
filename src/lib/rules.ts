@@ -379,3 +379,8 @@ export function computeRules(input: RulesInput): Rules {
     items,
   };
 }
+
+/** A mid-rise must also stay under the extra-large threshold, or MR 33's 6 m setbacks apply. */
+export function maxFloorAreaFor(kind: EnvelopeKind, rules: Rules): number {
+  return kind === "mid-rise" ? Math.min(rules.maxGfaM2, EXTRA_LARGE_M2) : rules.gfaCapM2;
+}

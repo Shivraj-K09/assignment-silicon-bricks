@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as maplibregl from "maplibre-gl";
 import type * as THREE from "three";
 import type { TerraDraw } from "terra-draw";
 import type { Feature, Polygon } from "geojson";
-import type { MapLayers } from "@/components/map-controls";
+import type { MapLayers } from "@/lib/map-layer-options";
 import MapLoading from "@/components/map-loading";
 import type { BuildingOverlap } from "@/lib/building-overlap";
 import type { Design } from "@/lib/designs";
@@ -62,6 +63,18 @@ interface MapViewProps {
   layers: MapLayers;
   /** The concept design to draw as massing, or null. */
   design: Design | null;
+  /** Content pinned to the plot on the map (its checks), hidden while drawing. */
+  plotPin?: ReactNode;
+  /** Hands the map to the page once it is ready (and null when it goes), for our own controls. */
+  onMapReady?: (map: maplibregl.Map | null) => void;
+}
+
+/** The plot corner nearest the viewer (the most southerly), where the pin hangs. */
+function pinPoint(plot: Feature<Polygon>): [number, number] {
+  const ring = plot.geometry.coordinates[0];
+  let best = ring[0];
+  for (const point of ring) if (point[1] < best[1]) best = point;
+  return [best[0], best[1]];
 }
 
 const CAMERA_3D = { pitch: 55, bearing: -20 };
@@ -104,12 +117,17 @@ export default function MapView(props: MapViewProps) {
   const designGroupRef = useRef<THREE.Group | null>(null);
   /** Outline terra-draw currently holds. */
   const syncedOutlineRef = useRef("");
+  /** The newest dragged outline, waiting for the next animation frame. */
+  const pendingPlotRef = useRef<Feature<Polygon> | null>(null);
+  const frameRef = useRef<number | null>(null);
   const markedRef = useRef<MarkedBuildings>({ onPlot: new Set(), colliding: new Set() });
   const view3dRef = useRef(true); // the map starts tilted
   // Latest props, for the map and terra-draw event handlers that are set up once.
   const latest = useRef(props);
   latest.current = props;
   const [ready, setReady] = useState(false);
+  // The element the plot pin renders into; MapLibre keeps it on the plot as the map moves.
+  const [pinElement] = useState(() => document.createElement("div"));
 
   // ---- Create the map once -----------------------------------------------------------
   useEffect(() => {
@@ -124,7 +142,6 @@ export default function MapView(props: MapViewProps) {
       attributionControl: { compact: true },
     });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
     map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
 
     const showPlotInDraw = (draw: TerraDraw, plot: Feature<Polygon>) => {
@@ -142,7 +159,17 @@ export default function MapView(props: MapViewProps) {
       if (!polygon) return;
       const plot = toPlotFeature(polygon);
       syncedOutlineRef.current = outlineKey(plot);
-      latest.current.onPlotChange(plot, "edit");
+      // A drag sends a change on every pointer move (often 120+ a second). Pass on
+      // only the latest one per animation frame, so the analysis runs once a frame.
+      pendingPlotRef.current = plot;
+      if (frameRef.current === null) frameRef.current = requestAnimationFrame(flushPlotChange);
+    };
+
+    const flushPlotChange = () => {
+      frameRef.current = null;
+      const plot = pendingPlotRef.current;
+      pendingPlotRef.current = null;
+      if (plot) latest.current.onPlotChange(plot, "edit");
     };
 
     // A new plot outline was finished in drawing mode.
@@ -212,14 +239,17 @@ export default function MapView(props: MapViewProps) {
       map.on("mousemove", handleMapMouseMove);
 
       setReady(true);
+      latest.current.onMapReady?.(map);
     };
 
     // "style.load", not "load": "load" waits for every basemap tile and can stall.
     map.once("style.load", handleStyleLoad);
 
     return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
       drawRef.current?.stop();
       drawRef.current = null;
+      latest.current.onMapReady?.(null);
       map.remove();
       mapRef.current = null;
       setReady(false);
@@ -329,12 +359,32 @@ export default function MapView(props: MapViewProps) {
     showBuildableOutline(map, frame, props.envelope?.footprint ?? []);
   }, [ready, props.envelope, frame]);
 
+  // ---- Pin on the plot -----------------------------------------------------------------------
+  const pinMarkerRef = useRef<maplibregl.Marker | null>(null);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    const marker = new maplibregl.Marker({ element: pinElement, anchor: "top", offset: [0, 14] })
+      .setLngLat(pinPoint(latest.current.plot))
+      .addTo(map);
+    pinMarkerRef.current = marker;
+    return () => {
+      marker.remove();
+      pinMarkerRef.current = null;
+    };
+  }, [ready, pinElement]);
+
+  useEffect(() => {
+    pinMarkerRef.current?.setLngLat(pinPoint(props.plot));
+  }, [props.plot]);
+
   // MapLibre CSS forces position:relative on the map element, so size it
   // through an absolutely positioned wrapper.
   return (
     <div className="absolute inset-0">
       <div ref={container} className="h-full w-full" />
       {!ready && <MapLoading text="Loading the map…" />}
+      {ready && !props.drawing && props.plotPin && createPortal(props.plotPin, pinElement)}
     </div>
   );
 }
